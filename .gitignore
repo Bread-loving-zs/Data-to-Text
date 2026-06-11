@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# AutoDL / Cloud
+finetune_upload.zip
+qwen3-lora-finetuned/
+qwen3-lora-output/
+qwen3-lora-merged/
+inference_test_results.json
+
+# Data files (large, sensitive)
+自动分析报告数据模板/
+自动分析报告agent数据/
+
+# Training data backups (keep only the primary files)
+training_data/*_backup.jsonl
+training_data/*_alpaca*.jsonl
+
+# Output
+output/
+
+# IDE / Tools
+.trae/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
