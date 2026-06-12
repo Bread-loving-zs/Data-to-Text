@@ -1,7 +1,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Callable
 
 from src.config import TRAINING_DATA_DIR, setup_logging
 from src.data.loader import DataLoader
@@ -58,8 +58,8 @@ class TrainingDataPreparer:
         samples: list[dict],
         output_filename: str,
         mode: str = "w",
-        format_func: Optional[callable] = None,
-        key_extractor: Optional[callable] = None,
+        format_func: Optional[Callable[[dict], dict]] = None,
+        key_extractor: Optional[Callable[[dict], str]] = None,
         log_label: str = "训练样本"
     ) -> Path:
         cleaned = []
