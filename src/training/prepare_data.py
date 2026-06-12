@@ -30,40 +30,13 @@ class TrainingDataPreparer:
 
     def process_real_samples(self, samples: list[dict], output_filename: str = "training_data.jsonl",
                               mode: str = "w") -> Path:
-        cleaned = []
-        for s in samples:
-            if self._validate_sample(s):
-                cleaned.append(s)
-            else:
-                logger.warning(f"跳过无效样本: {str(s)[:80]}...")
-
-        deduped = self._deduplicate(cleaned)
-        if len(cleaned) != len(deduped):
-            logger.info(f"去重: {len(cleaned)} -> {len(deduped)} 条")
-
-        output_path = self.output_dir / output_filename
-        write_mode = "w" if mode == "w" else "a"
-
-        if write_mode == "w":
-            with open(output_path, "w", encoding="utf-8") as f:
-                for sample in deduped:
-                    f.write(json.dumps(sample, ensure_ascii=False) + "\n")
-        else:
-            existing = self.load_existing_samples(output_filename)
-            existing_keys = {json.dumps(s.get("input", {}), ensure_ascii=False, sort_keys=True)
-                             for s in existing}
-            new_count = 0
-            with open(output_path, "a", encoding="utf-8") as f:
-                for sample in deduped:
-                    key = json.dumps(sample.get("input", {}), ensure_ascii=False, sort_keys=True)
-                    if key not in existing_keys:
-                        f.write(json.dumps(sample, ensure_ascii=False) + "\n")
-                        existing_keys.add(key)
-                        new_count += 1
-            logger.info(f"追加 {new_count} 条新样本")
-
-        logger.info(f"已写入 {len(deduped)} 条训练样本 -> {output_path}")
-        return output_path
+        return self._process_and_write_samples(
+            samples=samples,
+            output_filename=output_filename,
+            mode=mode,
+            format_func=None,
+            log_label="训练样本"
+        )
 
     def load_existing_samples(self, filename: str = "training_data.jsonl") -> list[dict]:
         filepath = self.output_dir / filename
@@ -79,6 +52,57 @@ class TrainingDataPreparer:
                     except json.JSONDecodeError:
                         logger.warning(f"跳过无效JSON行 #{line_num}")
         return samples
+
+    def _process_and_write_samples(
+        self,
+        samples: list[dict],
+        output_filename: str,
+        mode: str = "w",
+        format_func: Optional[callable] = None,
+        key_extractor: Optional[callable] = None,
+        log_label: str = "训练样本"
+    ) -> Path:
+        cleaned = []
+        for s in samples:
+            if self._validate_sample(s):
+                cleaned.append(s)
+            else:
+                logger.warning(f"跳过无效样本: {str(s)[:80]}...")
+
+        deduped = self._deduplicate(cleaned)
+        if len(cleaned) != len(deduped):
+            logger.info(f"去重: {len(cleaned)} -> {len(deduped)} 条")
+
+        processed = [format_func(s) for s in deduped] if format_func else deduped
+
+        if key_extractor is None:
+            if format_func:
+                key_extractor = lambda item: json.dumps(item.get("input", ""), ensure_ascii=False, sort_keys=True)
+            else:
+                key_extractor = lambda item: json.dumps(item.get("input", {}), ensure_ascii=False, sort_keys=True)
+
+        output_path = self.output_dir / output_filename
+        write_mode = "w" if mode == "w" else "a"
+
+        if write_mode == "w":
+            with open(output_path, "w", encoding="utf-8") as f:
+                for item in processed:
+                    f.write(json.dumps(item, ensure_ascii=False) + "\n")
+        else:
+            existing = self.load_existing_samples(output_filename)
+            existing_keys = {key_extractor(s) for s in existing}
+            new_count = 0
+            with open(output_path, "a", encoding="utf-8") as f:
+                for item in processed:
+                    key = key_extractor(item)
+                    if key not in existing_keys:
+                        f.write(json.dumps(item, ensure_ascii=False) + "\n")
+                        existing_keys.add(key)
+                        new_count += 1
+            logger.info(f"追加 {new_count} 条新样本")
+
+        logger.info(f"已写入 {len(processed)} 条{log_label} -> {output_path}")
+        return output_path
 
     def load_samples_from_jsonl(self, filepath: Path) -> list[dict]:
         if not filepath.exists():
@@ -460,44 +484,13 @@ class TrainingDataPreparer:
     def process_real_samples_alpaca(self, samples: list[dict],
                                      output_filename: str = "training_data_alpaca.jsonl",
                                      mode: str = "w") -> Path:
-        cleaned = []
-        for s in samples:
-            if self._validate_sample(s):
-                cleaned.append(s)
-            else:
-                logger.warning(f"跳过无效样本: {str(s)[:80]}...")
-
-        deduped = self._deduplicate(cleaned)
-        if len(cleaned) != len(deduped):
-            logger.info(f"去重: {len(cleaned)} -> {len(deduped)} 条")
-
-        formatted = [format_alpaca_sample(s) for s in deduped]
-
-        output_path = self.output_dir / output_filename
-        write_mode = "w" if mode == "w" else "a"
-
-        if write_mode == "w":
-            with open(output_path, "w", encoding="utf-8") as f:
-                for item in formatted:
-                    f.write(json.dumps(item, ensure_ascii=False) + "\n")
-        else:
-            existing = self.load_existing_samples(output_filename)
-            existing_keys = {
-                json.dumps(s.get("input", ""), ensure_ascii=False, sort_keys=True)
-                for s in existing
-            }
-            new_count = 0
-            with open(output_path, "a", encoding="utf-8") as f:
-                for item in formatted:
-                    key = json.dumps(item.get("input", ""), ensure_ascii=False, sort_keys=True)
-                    if key not in existing_keys:
-                        f.write(json.dumps(item, ensure_ascii=False) + "\n")
-                        existing_keys.add(key)
-                        new_count += 1
-            logger.info(f"追加 {new_count} 条新样本")
-
-        logger.info(f"已写入 {len(formatted)} 条 Alpaca 格式训练样本 -> {output_path}")
-        return output_path
+        return self._process_and_write_samples(
+            samples=samples,
+            output_filename=output_filename,
+            mode=mode,
+            format_func=format_alpaca_sample,
+            log_label="Alpaca 格式训练样本"
+        )
 
     def get_statistics(self, filename: str = "training_data.jsonl") -> dict:
         samples = self.load_existing_samples(filename)

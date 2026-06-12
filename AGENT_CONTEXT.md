@@ -156,19 +156,13 @@ PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True PYTHONPATH=. \
   - 尝试全参数微调（需要更多 GPU 显存）
   - 改进数据配比和清理质量
 
-### 阶段 2：本地推理支持（优先级：中）
-- [ ] 用户机器是 RTX 3050 Ti（4GB 显存），无法运行 Qwen3-14B
-- [ ] 方案 A：使用 Ollama + Qwen3-14B Q4_K_M 量化版（需要 ~10GB 显存，仍不够）
-- [ ] 方案 B：接入云端 API（如硅基流动、阿里百炼等）
-- [ ] 方案 C：换用更小的模型（Qwen3-4B 或 Qwen3-8B）
-
-### 阶段 3：新增功能（优先级：低）
+### 阶段 2：新增功能（优先级：低）
 - [ ] 将 LoRA 微调模型集成到主系统的 `ReportGenerator` 中（替代默认 Ollama 后端）
 - [ ] 添加更多评估指标（语义相似度、结构完整性评分）
 - [ ] 支持增量数据导入（新报告的自动提取和追加）
 - [ ] 前端界面（Web UI / Gradio）
 
-### 阶段 4：生产部署（优先级：低）
+### 阶段 3：生产部署（优先级：低）
 - [ ] 容器化部署（Docker + docker-compose）
 - [ ] CI/CD 流水线（模型评估自动化）
 - [ ] 监控与日志系统
@@ -211,10 +205,10 @@ PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True PYTHONPATH=. \
 - 推理时必须：`tokenizer.apply_chat_template(..., enable_thinking=False)`
 - 兜底：用 `re.sub(r'<\s*/?\s*think\s*>', '', generated)` 清理输出
 
-### 6. 项目本地运行条件
-- 需要 Ollama 运行 Qwen3-14B 模型
-- 用户本地 GPU 为 RTX 3050 Ti (4GB)，无法本地运行大模型
-- 当前本地仅用于代码开发和文件准备，实际推理在 AutoDL 上完成
+### 6. 推理方案
+- 推理和训练统一使用 AutoDL 云 GPU 平台，不探索本地推理方案
+- 用户本地 GPU 为 RTX 3050 Ti (4GB)，仅用于代码开发和文件准备
+- AutoDL 环境见上方"AutoDL 云端环境"章节
 
 ---
 

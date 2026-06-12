@@ -25,6 +25,9 @@ training_data/*_alpaca*.jsonl
 # Output
 output/
 
+# Deploy temp files
+.deploy_*
+
 # IDE / Tools
 .trae/
 .vscode/
