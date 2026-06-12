@@ -38,7 +38,7 @@ def generate_commands():
     lines.append("# --- 运行推理对比测试 ---")
     lines.append("cd /root/autodl-tmp/data-to-text")
     lines.append("PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True PYTHONPATH=. \\")
-    lines.append("  python src/training/test_inference_cloud.py --num-samples 5")
+    lines.append("  python scripts/inference_cloud.py --num-samples 5")
 
     return "\n".join(lines)
 

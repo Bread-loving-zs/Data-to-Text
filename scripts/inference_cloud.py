@@ -3,10 +3,10 @@
 在 AutoDL 上运行
 
 用法:
-  PYTHONPATH=. python src/training/test_inference_cloud.py
-  PYTHONPATH=. python src/training/test_inference_cloud.py --num-samples 5
-  PYTHONPATH=. python src/training/test_inference_cloud.py --base-only
-  PYTHONPATH=. python src/training/test_inference_cloud.py --lora-only
+  PYTHONPATH=. python scripts/inference_cloud.py
+  PYTHONPATH=. python scripts/inference_cloud.py --num-samples 5
+  PYTHONPATH=. python scripts/inference_cloud.py --base-only
+  PYTHONPATH=. python scripts/inference_cloud.py --lora-only
 """
 
 import os
@@ -20,7 +20,7 @@ logging.basicConfig(
     format="[%(asctime)s] [%(levelname)-5s] %(message)s",
     datefmt="%H:%M:%S"
 )
-logger = logging.getLogger("test_inference")
+logger = logging.getLogger("inference_cloud")
 
 from src.training.shared import format_training_sample, SYSTEM_PROMPT
 

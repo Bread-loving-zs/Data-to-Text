@@ -3,8 +3,8 @@
 在 AutoDL / Vast.ai 等云GPU平台运行
 
 用法:
-  python src/training/finetune_cloud.py              # 完整流程
-  python src/training/finetune_cloud.py --prepare-only  # 仅格式化数据
+  python scripts/finetune_cloud.py              # 完整流程
+  python scripts/finetune_cloud.py --prepare-only  # 仅格式化数据
 
 硬件建议:
   - 最低 24GB 显存 (RTX 3090/A5000) — 使用4-bit量化
@@ -199,7 +199,7 @@ def train():
 def prepare_and_train(data_path: str = "training_data/training_data.jsonl"):
     samples = load_training_data(data_path)
     if not samples:
-        logger.error("无训练数据，请先运行: python main.py training import <你的数据>")
+        logger.error("无训练数据，请先运行: d2t training import <你的数据>")
         return
 
     os.makedirs("training_data", exist_ok=True)

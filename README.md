@@ -1,18 +1,10 @@
-# Data-to-Text 项目交接文档
+# Data-to-Text
 
-## 一、项目概述
+食品安全抽检报告自动生成系统，基于 Agent + LLM 架构（Qwen3-14B），将抽检数据自动转化为专业的 Markdown/Word 分析报告。覆盖**监督抽检**和**风险监测**两大业务场景。
 
-**项目名称**：Data-to-Text — 食品安全抽检报告自动生成系统
+**技术栈**：Python 3.10+ / Pandas / Pydantic / python-docx / Matplotlib / SciPy / Ollama / vLLM / QLoRA 微调
 
-**项目定位**：基于 Agent + LLM 架构的食品安全抽检分析报告自动生成系统。系统从用户自然语言指令出发，经过意图识别、数据查询、统计计算、上下文组装、文本生成、事实校验等环节，最终输出专业的食品安全抽检分析报告（Markdown + Word 文档）。
-
-**核心价值**：将传统"填空式模板套用"升级为"AI 智能查数、智能分析、智能撰写"的完整闭环，覆盖监督抽检和风险监测两大业务场景。
-
-**技术栈**：Python 3.10+ / Pandas / Pydantic / python-docx / Matplotlib / SciPy / Ollama (Qwen3-14B) / vLLM / LoRA 微调
-
----
-
-## 二、系统架构
+## 系统架构
 
 ```
 用户指令
@@ -60,20 +52,15 @@
 └──────────────┘
 ```
 
----
-
-## 三、目录结构
+## 目录结构
 
 ```
-Data_to_Text/
-├── main.py                          # CLI 入口，所有子命令的调度中心
+Data-to-Text/
 ├── pyproject.toml                   # 项目配置、依赖、ruff/pytest 配置
-├── pytest.ini                       # pytest 额外配置
-├── Data-to-Text.md                  # 原始设计文档（四阶段方案）
 │
 ├── src/                             # 核心源码
+│   ├── cli.py                       # CLI 入口（d2t 命令）
 │   ├── config.py                    # 全局配置（路径、环境变量、CSV映射、Schema元数据）
-│   ├── __init__.py
 │   │
 │   ├── agent/                       # Agent 层：意图识别、数据查询、统计、生成
 │   │   ├── intent.py                # 意图识别（规则引擎 + LLM 增强混合策略）
@@ -81,27 +68,28 @@ Data_to_Text/
 │   │   ├── statistics.py            # 统计引擎（卡方检验、趋势分析、Wilson CI、异常检测、ANOVA）
 │   │   ├── generator.py             # 报告生成（Ollama/vLLM 双后端 + 降级模式 + 事实校验集成）
 │   │   ├── fact_checker.py          # 事实校验（提取生成文本中的数值并与上下文比对）
-│   │   ├── context.py               # 上下文组装（将查询结果+统计结果组装为 ReportContext）
-│   │   └── __init__.py
+│   │   └── context.py               # 上下文组装（将查询结果+统计结果组装为 ReportContext）
 │   │
 │   ├── data/                        # 数据层：加载、字典、模型
 │   │   ├── loader.py                # 数据加载器（CSV 读取、缓存、列校验、多表映射）
 │   │   ├── dictionary.py            # 数据字典（读取 Excel 字典文件，字段查询）
-│   │   ├── models.py                # Pydantic 数据模型（BatchDetail, TrendData, RiskItem, ReportContext 等）
-│   │   └── __init__.py
+│   │   └── models.py                # Pydantic 数据模型（BatchDetail, TrendData, RiskItem, ReportContext 等）
 │   │
 │   ├── report/                      # 报告输出层
 │   │   ├── template.py              # 报告模板（生成图表 + 组装 Markdown + 转 Word）
 │   │   ├── converter.py             # Markdown→Word 转换器（标题、表格、列表、图片、引用、代码块）
-│   │   ├── charts.py                # 图表生成器（柱状图、趋势折线图、饼图、同比对比图）
-│   │   └── __init__.py
+│   │   └── charts.py                # 图表生成器（柱状图、趋势折线图、饼图、同比对比图）
 │   │
 │   └── training/                    # 训练数据层
 │       ├── prepare_data.py          # 训练数据准备（DOCX 解析、CSV 对、JSONL、去重、验证）
 │       ├── shared.py                # 训练数据格式化（Alpaca 格式、ChatML 格式、章节指令模板）
-│       ├── finetune_cloud.py        # 云端 LoRA 微调脚本（Qwen3-14B, AutoDL/Vast.ai）
-│       ├── evaluate.py              # 模型评估（词重叠、事实准确率、结构完整性、综合评分）
-│       └── __init__.py
+│       └── evaluate.py              # 模型评估（词重叠、事实准确率、结构完整性、综合评分）
+│
+├── scripts/                         # 工具脚本（独立运行，需 GPU 环境）
+│   ├── finetune_cloud.py            # 云端 QLoRA 微调脚本（Qwen3-14B, AutoDL）
+│   ├── inference_cloud.py           # 云端推理对比测试（基础模型 vs LoRA 微调）
+│   ├── deploy_to_autodl.py          # AutoDL 部署命令生成器
+│   └── optimize_training_data.py    # 训练数据质量优化脚本
 │
 ├── prompts/                         # Prompt 模板
 │   ├── intent_recognition.txt       # 意图识别系统提示词
@@ -109,23 +97,9 @@ Data_to_Text/
 │
 ├── training_data/                   # 训练数据（JSONL 格式）
 │   ├── training_data.jsonl          # 原始训练数据
-│   ├── training_data_formatted.jsonl # 微调格式数据（ChatML messages）
-│   ├── training_data_alpaca.jsonl   # Alpaca 格式数据
-│   ├── training_data_optimized.jsonl # 优化后数据
-│   └── ...（备份文件）
-│
-├── 自动分析报告数据模板/             # 模板数据（省级）
-│   ├── 数据表/                      # CSV 数据文件（38+ 张表）
-│   ├── 监督抽检1780384482451.docx   # 监督抽检报告模板
-│   ├── 风险监测1780384564764.docx   # 风险监测报告模板
-│   └── sheng_jdcj_dictionary数据字典.xlsx
-│
-├── 自动分析报告agent数据/            # Agent 实际运行数据（含市级）
-│   ├── 数据表/                      # 按城市分目录（防城港等），含 xlsx 和 csv
-│   └── *.docx                       # 各城市/类型的报告样本
+│   └── training_data_formatted.jsonl # 微调格式数据（ChatML messages）
 │
 ├── tests/                           # 单元测试
-│   ├── conftest.py                  # 测试配置
 │   ├── test_intent.py               # 意图识别测试
 │   ├── test_query.py                # 数据查询测试
 │   ├── test_statistics.py           # 统计计算测试
@@ -137,11 +111,9 @@ Data_to_Text/
 └── output/                          # 运行时输出目录（报告、图表）
 ```
 
----
+## 核心模块详解
 
-## 四、核心模块详解
-
-### 4.1 意图识别 — `src/agent/intent.py`
+### 意图识别 — `src/agent/intent.py`
 
 **类**：`IntentRecognizer`
 
@@ -159,27 +131,11 @@ Data_to_Text/
   - 支持 Ollama 和 vLLM/OpenAI 两种后端
   - 通过环境变量 `INTENT_USE_LLM=true` 开启
 
-- **输出格式**：
-  ```json
-  {
-    "year": 2025,
-    "quarter": 1,
-    "food_category": "辣椒",
-    "food_subcategory": null,
-    "item_name": null,
-    "region": "广西",
-    "report_type": "监督抽检",
-    "dimension": "全省"
-  }
-  ```
-
-### 4.2 数据查询 — `src/agent/query.py`
+### 数据查询 — `src/agent/query.py`
 
 **类**：`DataQuerier`
 
-**功能**：根据意图从 `DataLoader` 加载并过滤数据，返回多张 DataFrame
-
-**查询的数据表**（共 10 类）：
+根据意图从 `DataLoader` 加载并过滤数据，返回多张 DataFrame。
 
 | 键名 | 数据内容 | 过滤条件 |
 |------|---------|---------|
@@ -194,9 +150,9 @@ Data_to_Text/
 | `item_trend` | 检测项目趋势 | 按检测项目名 |
 | `seasonal` | 季节性风险 | 按食品细类/大类 |
 
-**过滤逻辑**：`_filter_by_food()` 方法按 `sp_s_17`→`sp_s_18`→`sp_s_19`→`sp_s_20` 四级食品分类列逐级匹配
+过滤逻辑：`_filter_by_food()` 方法按 `sp_s_17`→`sp_s_18`→`sp_s_19`→`sp_s_20` 四级食品分类列逐级匹配
 
-### 4.3 统计引擎 — `src/agent/statistics.py`
+### 统计引擎 — `src/agent/statistics.py`
 
 **类**：`StatisticsEngine`（全部静态方法）
 
@@ -210,13 +166,12 @@ Data_to_Text/
 | `detect_anomalies()` | 异常值检测（IQR/Z-score） | 异常值索引列表 |
 | `compare_groups()` | 多组比较（单因素方差分析） | f_statistic, p_value, significant |
 
-### 4.4 上下文组装 — `src/agent/context.py`
+### 上下文组装 — `src/agent/context.py`
 
 **类**：`ContextAssembler`
 
-**功能**：将查询结果和统计结果组装为 `ReportContext` Pydantic 模型
+将查询结果和统计结果组装为 `ReportContext` Pydantic 模型，组装的数据模块：
 
-**组装的数据模块**：
 - `province_summary`：全省概况（总批次、不合格批次、不合格率、三年趋势、同比变化、P值）
 - `category_details`：分类抽检详情（前 20 条）
 - `trend_analysis`：三年趋势分析（前年/去年/今年批次和不合格率、slope、chi2 等）
@@ -225,13 +180,12 @@ Data_to_Text/
 - `high_rate_items`：高不合格率项目（前 15 条）
 - `statistics`：统计指标（来自 `StatisticsEngine`）
 
-**输出**：`to_prompt_text()` 生成结构化 Markdown 文本供 LLM 使用
+输出：`to_prompt_text()` 生成结构化 Markdown 文本供 LLM 使用
 
-### 4.5 报告生成 — `src/agent/generator.py`
+### 报告生成 — `src/agent/generator.py`
 
 **类**：`ReportGenerator`
 
-**流程**：
 1. 调用 `ContextAssembler.assemble()` 组装上下文
 2. 调用 `ContextAssembler.to_prompt_text()` 生成 Prompt
 3. 调用 LLM 生成报告（Ollama 或 vLLM 后端）
@@ -240,42 +194,29 @@ Data_to_Text/
 
 **降级模式**：当 LLM 调用失败时，从上下文文本中正则提取关键数据，生成结构化但较简略的报告，并标注"降级模式"
 
-**LLM 参数**：temperature=0.3, num_predict/max_tokens=4096
+LLM 参数：temperature=0.3, num_predict/max_tokens=4096
 
-### 4.6 事实校验 — `src/agent/fact_checker.py`
+### 事实校验 — `src/agent/fact_checker.py`
 
 **类**：`FactChecker`
 
-**功能**：检查生成报告中的数值是否与上下文数据一致
+检查生成报告中的数值是否与上下文数据一致：
 
-**校验流程**：
 1. 从生成文本中提取数值事实（不合格率、抽检批次、P值、趋势方向等）
 2. 从上下文中提取参考数值
 3. 比对偏差，超过 tolerance（默认 5%）则记录警告
 
-**判定标准**：
-- 准确率 ≥ 90%：通过
-- 准确率 ≥ 70%：警告
-- 准确率 < 70%：不通过
+判定标准：准确率 ≥ 90% 通过 / ≥ 70% 警告 / < 70% 不通过
 
-### 4.7 数据加载 — `src/data/loader.py`
+### 数据加载 — `src/data/loader.py`
 
 **类**：`DataLoader`
 
-**功能**：从 CSV 文件加载数据，支持缓存和列校验
-
-**关键设计**：
-- `resolve_csv_mapping()`：自动匹配带时间戳后缀的 CSV 文件名（如 `jdcj_prov_cbbs_202606021555.csv`）
+- `resolve_csv_mapping()`：自动匹配带时间戳后缀的 CSV 文件名
 - 列校验：对关键表检查必需列是否存在
 - 38+ 张数据表的映射关系（见 `config.py` 中的 `CSV_FILE_MAPPING`）
 
-**数据表分类**：
-- `jdcj_prov_*`：省级监督抽检数据（违规项、市场抽检、季节性、超标、高不合格率等）
-- `sheng_jdcj_*`：省级趋势/明细数据（大类、细类、地市、环节、场所、项目等）
-
-### 4.8 数据模型 — `src/data/models.py`
-
-**Pydantic 模型**：
+### 数据模型 — `src/data/models.py`
 
 | 模型 | 用途 |
 |------|------|
@@ -287,97 +228,61 @@ Data_to_Text/
 | `TrainingSample` | 训练样本 |
 | `ReportContext` | 报告上下文（核心模型，含验证逻辑） |
 
-### 4.9 报告输出 — `src/report/`
+### 报告输出 — `src/report/`
 
-**`template.py`** — `ReportTemplate`：
-- 从查询结果生成图表（不合格率柱状图、风险项目图、三年趋势折线图、季节性饼图）
-- 将图表引用插入 Markdown
-- 调用 `MarkdownToDocx` 转换为 Word
+- **`template.py`** — `ReportTemplate`：生成图表 + 组装 Markdown + 转 Word
+- **`converter.py`** — `MarkdownToDocx`：支持标题、表格、列表、引用、代码块、图片、行内格式
+- **`charts.py`** — `ChartGenerator`：柱状图、趋势折线图、饼图、同比对比图，自动中文字体适配
 
-**`converter.py`** — `MarkdownToDocx`：
-- 完整的 Markdown→Word 转换器
-- 支持：标题（1-3级）、表格、无序/有序列表、引用、代码块、图片、行内格式
-- 样式：宋体正文、蓝色标题、标准页边距
+### 训练数据 — `src/training/`
 
-**`charts.py`** — `ChartGenerator`：
-- 柱状图（不合格率排名、风险项目）
-- 趋势折线图（三年不合格率）
-- 饼图（高风险季度分布）
-- 同比对比图
-- 自动中文字体适配（微软雅黑/黑体/思源等）
+- **`prepare_data.py`** — `TrainingDataPreparer`：从 DOCX 报告中提取"数据表-分析文本"对，支持两种提取模式，自动去重、验证、追加
+- **`shared.py`**：ChatML/Alpaca 格式化 + 14 套章节指令模板（7 种章节 × 2 种分析类型）
+- **`evaluate.py`** — `Evaluator`：词重叠率（25%）、事实准确率（40%）、结构完整性（35%）
 
-### 4.10 训练数据 — `src/training/`
+### 云端脚本 — `scripts/`
 
-**`prepare_data.py`** — `TrainingDataPreparer`：
-- 从 DOCX 报告中提取"数据表-分析文本"对
-- 两种提取模式：`load_samples_from_docx_pairs()`（表-文配对）和 `load_samples_from_docx_by_section()`（按章节）
-- 支持 JSONL 和 CSV 两种输入格式
-- 自动去重、验证、追加
+- **`finetune_cloud.py`**：Qwen3-14B QLoRA 微调脚本（r=16, alpha=32, 4-bit NF4 量化）
+- **`inference_cloud.py`**：云端推理对比测试（基础模型 vs LoRA 微调，CLI 参数 `--base-only` / `--lora-only` / `--num-samples N`）
+- **`deploy_to_autodl.py`**：AutoDL 部署命令生成器
+- **`optimize_training_data.py`**：训练数据质量优化脚本
 
-**`shared.py`**：
-- `format_training_sample()`：格式化为 ChatML messages 格式（system/user/assistant）
-- `format_alpaca_sample()`：格式化为 Alpaca 格式（instruction/input/output）
-- 章节指令模板：7 种分析章节 × 2 种分析类型 = 14 套指令模板
+## CLI 命令
 
-**`finetune_cloud.py`**：
-- Qwen3-14B LoRA 微调脚本
-- 硬件要求：最低 24GB 显存，推荐 A100 40GB
-- LoRA 配置：r=16, alpha=32, dropout=0.05, 学习率 2e-4, 3 epochs
-- 目标模块：q/k/v/o_proj + gate/up/down_proj
-
-**`evaluate.py`** — `Evaluator`：
-- 评估维度：词重叠率（25%）、事实准确率（40%）、结构完整性（35%）
-- 结构检查：是否包含概述、趋势、风险预警、建议四个模块
-- 支持模型对比（微调前后）
-
----
-
-## 五、CLI 命令
-
-入口文件：`main.py`，注册为 `d2t` 命令
+入口：`d2t`（安装后可用）或 `python -m src.cli`
 
 ```bash
 # 生成报告
-python main.py generate "帮我生成一份2025年广西监督抽检报告" --docx --name "抽检分析报告"
+d2t generate "帮我生成一份2025年广西监督抽检报告" --docx --name "抽检分析报告"
 
 # 查看可用数据表
-python main.py explore
+d2t explore
 
 # Markdown 转 Word
-python main.py convert report.md -o report.docx
+d2t convert report.md -o report.docx
 
 # 训练数据管理
-python main.py training stats -f training_data.jsonl
-python main.py training import input.jsonl --output-name training_data.jsonl --mode a
-python main.py training import input.csv --output-csv output.csv
-python main.py training export -i training_data.jsonl -o training_data_formatted.jsonl
+d2t training stats -f training_data.jsonl
+d2t training import input.jsonl --output-name training_data.jsonl --mode a
+d2t training export -i training_data.jsonl -o training_data_formatted.jsonl
 
 # 模型评估
-python main.py evaluate test_data.jsonl -o eval_results.json --model qwen3:14b --backend ollama
+d2t evaluate test_data.jsonl -o eval_results.json --model qwen3:14b --backend ollama
 
-# 云端微调
-python src/training/finetune_cloud.py
-python src/training/finetune_cloud.py --prepare-only
+# 云端微调（在 AutoDL 上运行）
+python scripts/finetune_cloud.py
+python scripts/finetune_cloud.py --prepare-only
 ```
 
----
+## 环境配置
 
-## 六、环境配置
-
-### 6.1 依赖安装
+### 依赖安装
 
 ```bash
-# 基础依赖
-pip install pandas>=2.2.0 openpyxl>=3.1.0 python-docx>=1.1.0 matplotlib>=3.8.0 scipy>=1.12.0 numpy>=1.26.0 pydantic>=2.6.0 httpx>=0.27.0
-
-# 微调依赖（可选）
-pip install transformers peft datasets accelerate bitsandbytes torch>=2.0.0
-
-# 开发依赖
-pip install pytest>=8.0.0 pytest-cov
+pip install -e .
 ```
 
-### 6.2 环境变量
+### 环境变量
 
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
@@ -391,35 +296,63 @@ pip install pytest>=8.0.0 pytest-cov
 | `INTENT_USE_LLM` | `false` | 是否启用 LLM 增强意图识别 |
 | `LOG_LEVEL` | `INFO` | 日志级别 |
 
-### 6.3 Ollama 部署
+### Ollama 部署
 
 ```bash
-# 安装 Ollama
 curl -fsSL https://ollama.com/install.sh | sh
-
-# 拉取模型
 ollama pull qwen3:14b
-
-# 启动服务
 ollama serve
 ```
 
----
+## AutoDL 云端环境
 
-## 七、数据说明
+微调训练和推理测试全程在 **AutoDL** 云 GPU 平台完成。
 
-### 7.1 数据源
+| 项目 | 值 |
+|------|-----|
+| 工作目录 | `/root/autodl-tmp/data-to-text/` |
+| 基础模型 | `/root/autodl-tmp/Qwen3-14B` |
+| LoRA 权重 | `./qwen3-lora-finetuned/` |
+| 合并模型 | `./qwen3-lora-merged/` |
+| 训练数据 | `training_data/training_data.jsonl` (250 条) |
+| GPU | 32GB 显存的 NVIDIA GPU |
 
-数据存放于两个目录：
+### AutoDL 环境初始化
+
+```bash
+source /etc/network_turbo
+python -c "import torch; print(torch.__version__)"
+pip install transformers peft datasets accelerate bitsandbytes
+pip uninstall torchvision -y
+```
+
+### 往 AutoDL 传文件
+
+使用 `scripts/deploy_to_autodl.py` 生成 heredoc 格式的部署命令：
+
+```bash
+python3 scripts/deploy_to_autodl.py           # 输出到终端
+python3 scripts/deploy_to_autodl.py output.sh  # 输出到文件
+```
+
+### AutoDL 数据持久化
+
+- `/root/autodl-tmp/` 下的文件在实例关机后保留（数据盘）
+- 系统盘（`/root/` 其他目录）在关机后会清空
+
+## 数据说明
+
+### 数据源
+
 - `自动分析报告数据模板/数据表/`：省级数据（CSV 格式，38+ 张表）
 - `自动分析报告agent数据/数据表/`：市级数据（按城市分目录，含 xlsx 和 csv）
 
-### 7.2 数据表命名规则
+### 数据表命名规则
 
 - 省级表：`jdcj_prov_{类型}_{时间戳}.csv` 或 `sheng_jdcj_{维度}_{类型}_{时间戳}.csv`
 - 市级表：`fxjc_city_{类型}.xlsx` 或 `shi_fxjc_{维度}_{类型}.xlsx`
 
-### 7.3 关键列名
+### 关键列名
 
 | 列名 | 含义 |
 |------|------|
@@ -442,74 +375,103 @@ ollama serve
 | `wilson_ci_95` | Wilson 95% 置信区间 |
 | `rate_trend` | 率趋势 |
 
-### 7.4 数据字典
-
 完整字段说明见 `自动分析报告数据模板/sheng_jdcj_dictionary数据字典.xlsx`，可通过 `DataDictionary` 类查询。
 
----
+## QLoRA 微调记录
 
-## 八、测试
+2026-06-07 在 AutoDL 上完成 Qwen3-14B 4-bit QLoRA 微调：
+
+| 参数 | 值 |
+|------|-----|
+| LoRA r | 16 |
+| LoRA alpha | 32 |
+| LoRA dropout | 0.05 |
+| 学习率 | 2e-4 |
+| Epochs | 3 |
+| Batch size | 1 |
+| 梯度累积 | 16 |
+| 最大序列长度 | 1024 |
+| 量化 | 4-bit NF4 (BitsAndBytes) |
+| 目标模块 | q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj |
+| 优化器 | paged_adamw_8bit |
+| 训练时间 | 19分17秒 |
+| 训练步数 | 48 步 |
+| Loss 变化 | 0.9474 → 0.2319 |
+
+## 关键技术笔记
+
+### transformers 新版本 API 变化
+
+训练脚本已适配新版 transformers 的以下 API 变更：
+- `tokenizer=tokenizer` → `processing_class=tokenizer`（Trainer 参数）
+- `torch_dtype=...` → `dtype=...`（from_pretrained 参数）
+- `warmup_ratio=...` → `warmup_steps=...`（TrainingArguments 参数）
+
+### CUDA OOM 解决方案
+
+训练过程经历了多次 OOM，最终通过以下组合解决：
+- 4-bit 量化（BitsAndBytes NF4）
+- 移除 `prepare_model_for_kbit_training()`
+- max_seq_length 从 2048 减到 1024
+- `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`
+- `gradient_checkpointing_kwargs={"use_reentrant": False}`
+- `optim="paged_adamw_8bit"`
+
+### Qwen3 思考模式（Thinking Mode）
+
+- Qwen3 默认在 chat template 中启用思考模式（在 `<think>` 标签内推理）
+- SYSTEM_PROMPT 中不应包含"在心中推理"/"思考"等触发词
+- 推理时必须：`tokenizer.apply_chat_template(..., enable_thinking=False)`
+- 兜底：用 `re.sub(r'<\s*/?\s*think\s*>', '', generated)` 清理输出
+
+### 推理方案
+
+推理和训练统一使用 AutoDL 云 GPU 平台，不探索本地推理方案。用户本地 GPU 为 RTX 3050 Ti (4GB)，仅用于代码开发和文件准备。
+
+## 测试
 
 ```bash
-# 运行全部测试
 pytest tests/ -v
-
-# 运行单个模块测试
-pytest tests/test_statistics.py -v
-pytest tests/test_intent.py -v
 ```
 
 测试覆盖 7 个核心模块：意图识别、数据查询、统计计算、报告生成、事实校验、上下文组装、数据加载。
 
----
+## 代码规范
 
-## 九、代码规范
-
-- **Linter**：Ruff（配置见 `pyproject.toml`）
-  - target-version: py310
-  - line-length: 120
-  - 规则: E, F, W, I, N, UP（忽略 E501）
-- **类型检查**：使用 Python 类型注解 + Pydantic 模型
+- **Linter**：Ruff（配置见 `pyproject.toml`，target-version: py310, line-length: 120）
+- **类型检查**：Python 类型注解 + Pydantic 模型
 - **日志**：统一使用 `setup_logging()` 获取 logger
 
 ```bash
-# 运行 lint
 ruff check src/ tests/
 ```
 
----
+## 已知问题
 
-## 十、已知问题与待优化项
-
-1. **数据源耦合**：当前数据源为静态 CSV 文件，未接入数据库。如需实时数据，需改造 `DataLoader` 为数据库查询模式
+1. **数据源耦合**：当前数据源为静态 CSV 文件，未接入数据库
 2. **市级数据适配**：`DataLoader` 主要针对省级 CSV 数据设计，市级 xlsx 数据需要额外适配
-3. **意图识别**：规则引擎覆盖常见场景，但复杂/模糊指令仍依赖 LLM 增强，需设置 `INTENT_USE_LLM=true`
-4. **降级模式**：当 LLM 不可用时降级生成的报告质量有限，仅包含基础数据表格
+3. **意图识别**：规则引擎覆盖常见场景，但复杂/模糊指令仍依赖 LLM 增强
+4. **降级模式**：当 LLM 不可用时降级生成的报告质量有限
 5. **事实校验**：当前仅做数值偏差检测，未覆盖语义层面的逻辑一致性校验
 6. **图表样式**：中文字体依赖系统安装的字体，不同环境可能显示异常
-7. **训练数据**：当前训练数据量有限（数百条），微调效果有待更多高质量样本验证
+7. **训练数据**：当前训练数据量有限（250 条），微调效果有待更多高质量样本验证
 
----
-
-## 十一、快速上手
+## 快速上手
 
 ```bash
-# 1. 克隆项目
-cd Data_to_Text
-
-# 2. 安装依赖
+# 1. 安装依赖
 pip install -e .
 
-# 3. 确保 Ollama 运行（默认 localhost:11434）
+# 2. 确保 Ollama 运行（默认 localhost:11434）
 ollama serve
 
-# 4. 查看可用数据
-python main.py explore
+# 3. 查看可用数据
+d2t explore
 
-# 5. 生成报告
-python main.py generate "帮我生成一份2025年广西监督抽检报告"
+# 4. 生成报告
+d2t generate "帮我生成一份2025年广西监督抽检报告"
 
-# 6. 查看输出
+# 5. 查看输出
 # Markdown: output/report.md
 # Word: output/抽检分析报告.docx
 # 图表: output/charts/

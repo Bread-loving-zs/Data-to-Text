@@ -33,7 +33,7 @@ dev = [
 ]
 
 [project.scripts]
-d2t = "main:main"
+d2t = "src.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

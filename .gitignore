@@ -21,12 +21,14 @@ inference_test_results.json
 # Training data backups (keep only the primary files)
 training_data/*_backup.jsonl
 training_data/*_alpaca*.jsonl
+training_data/*_optimized*.jsonl
 
 # Output
 output/
 
 # Deploy temp files
 .deploy_*
+deploy_commands.sh
 
 # IDE / Tools
 .trae/

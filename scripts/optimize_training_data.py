@@ -1,13 +1,11 @@
 import json
 import re
-import sys
 import copy
 from pathlib import Path
 from collections import Counter, defaultdict
 
 PROJECT_ROOT = Path(__file__).parent.parent
 TRAINING_DIR = PROJECT_ROOT / "training_data"
-sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def load_jsonl(filepath):

@@ -1,8 +1,6 @@
 import argparse
-import sys
+import json
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent))
 
 from src.config import OUTPUT_DIR, setup_logging
 from src.data.loader import DataLoader
@@ -13,7 +11,7 @@ from src.agent.generator import ReportGenerator
 from src.report.template import ReportTemplate
 from src.training.prepare_data import TrainingDataPreparer
 
-logger = setup_logging("main")
+logger = setup_logging("cli")
 
 
 def cmd_training_stats(args):
@@ -105,7 +103,6 @@ def cmd_evaluate(args):
             ]
         }
         output_path = Path(args.output)
-        import json
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(output_data, f, ensure_ascii=False, indent=2)

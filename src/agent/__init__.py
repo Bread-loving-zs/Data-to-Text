@@ -3,6 +3,7 @@ from src.agent.query import DataQuerier
 from src.agent.context import ContextAssembler
 from src.agent.generator import ReportGenerator
 from src.agent.statistics import StatisticsEngine
+from src.agent.fact_checker import FactChecker
 
 __all__ = [
     "IntentRecognizer",
@@ -10,4 +11,5 @@ __all__ = [
     "ContextAssembler",
     "ReportGenerator",
     "StatisticsEngine",
+    "FactChecker",
 ]
