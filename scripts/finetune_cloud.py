@@ -17,6 +17,9 @@ import logging
 from pathlib import Path
 from src.data.utils import load_jsonl
 
+os.environ.setdefault("HF_HOME", "/root/autodl-tmp/huggingface_cache")
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] [%(levelname)-5s] %(message)s",
@@ -26,8 +29,11 @@ logger = logging.getLogger("finetune")
 
 from src.training.shared import format_training_sample
 
+LOCAL_MODEL_PATH = "/root/autodl-tmp/Qwen3-14B"
+HF_MODEL_NAME = "Qwen/Qwen3-14B"
+
 FINETUNE_CONFIG = {
-    "model_name": "Qwen/Qwen3-14B",
+    "model_name": LOCAL_MODEL_PATH if Path(LOCAL_MODEL_PATH).exists() else HF_MODEL_NAME,
     "lora_r": 16,
     "lora_alpha": 32,
     "lora_dropout": 0.05,

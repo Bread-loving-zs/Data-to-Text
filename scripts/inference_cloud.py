@@ -15,9 +15,13 @@ import re
 import logging
 import argparse
 import time
+from pathlib import Path
 from typing import Optional
 
 from src.data.utils import load_jsonl
+
+os.environ.setdefault("HF_HOME", "/root/autodl-tmp/huggingface_cache")
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,7 +32,9 @@ logger = logging.getLogger("inference_cloud")
 
 from src.training.shared import format_training_sample, SYSTEM_PROMPT
 
-MODEL_PATH = "/root/autodl-tmp/Qwen3-14B"
+LOCAL_MODEL_PATH = "/root/autodl-tmp/Qwen3-14B"
+HF_MODEL_NAME = "Qwen/Qwen3-14B"
+MODEL_PATH = LOCAL_MODEL_PATH if Path(LOCAL_MODEL_PATH).exists() else HF_MODEL_NAME
 LORA_PATH = "./qwen3-lora-finetuned"
 DATA_PATH = "training_data/training_data.jsonl"
 
@@ -187,7 +193,11 @@ def main():
         base_result = test_base_model(args.num_samples)
 
     if not args.base_only:
-        lora_result = test_lora_model(args.num_samples)
+        if not Path(LORA_PATH).exists():
+            logger.warning(f"LoRA 权重不存在: {LORA_PATH}，请先运行微调脚本")
+            logger.warning("跳过微调模型测试")
+        else:
+            lora_result = test_lora_model(args.num_samples)
 
     if base_result and lora_result:
         print(f"\n{'='*60}")
