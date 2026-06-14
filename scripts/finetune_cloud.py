@@ -101,19 +101,18 @@ def tokenize_samples(raw_samples: list[dict], tokenizer, config: dict) -> list[d
         full_ids = tokenizer.apply_chat_template(
             msgs, tokenize=True, add_generation_prompt=False
         )
+        full_ids = list(full_ids)
         if len(full_ids) > max_len:
             full_ids = full_ids[:max_len]
         labels = [-100] * len(full_ids)
         for i, msg in enumerate(msgs):
             if msg["role"] == "assistant":
-                end_ids = tokenizer.apply_chat_template(
+                end_ids = list(tokenizer.apply_chat_template(
                     msgs[:i + 1], tokenize=True, add_generation_prompt=False
-                )
-                start = 0 if i == 0 else len(
-                    tokenizer.apply_chat_template(
-                        msgs[:i], tokenize=True, add_generation_prompt=False
-                    )
-                )
+                ))
+                start = 0 if i == 0 else len(list(tokenizer.apply_chat_template(
+                    msgs[:i], tokenize=True, add_generation_prompt=False
+                )))
                 end = len(end_ids)
                 for j in range(start, min(end, len(full_ids))):
                     labels[j] = full_ids[j]
