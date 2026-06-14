@@ -14,7 +14,6 @@ class ReportTemplate:
     def __init__(self, output_dir: Optional[Path] = None):
         self.output_dir = output_dir or OUTPUT_DIR
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.loader = DataLoader()
         self.chart_gen = ChartGenerator(self.output_dir)
 
     def build_report_with_charts(self, report_markdown: str, query_results: dict,

@@ -5,7 +5,6 @@ from typing import Optional
 from docx import Document
 from docx.shared import Inches, Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.style import WD_STYLE_TYPE
 
 from src.config import setup_logging
 

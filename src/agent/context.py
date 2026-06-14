@@ -3,7 +3,6 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from src.agent.statistics import StatisticsEngine
 from src.data.models import ReportContext
 from src.config import setup_logging
 
@@ -11,8 +10,8 @@ logger = setup_logging(__name__)
 
 
 class ContextAssembler:
-    def __init__(self, stats_engine: Optional[StatisticsEngine] = None):
-        self.stats = stats_engine or StatisticsEngine()
+    def __init__(self):
+        pass
 
     def assemble(self, intent: dict, query_results: dict[str, pd.DataFrame]) -> ReportContext:
         ctx = ReportContext(

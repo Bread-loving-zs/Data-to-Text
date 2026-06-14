@@ -275,7 +275,7 @@ class IntentRecognizer:
             try:
                 return json.loads(match.group())
             except json.JSONDecodeError:
-                pass
+                logger.warning(f"JSON解析失败: {match.group()[:80]}")
         return self._empty_result()
 
     def _empty_result(self) -> dict:

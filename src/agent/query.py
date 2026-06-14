@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Callable, Optional
 import pandas as pd
 
 from src.data.loader import DataLoader
@@ -11,6 +11,14 @@ class DataQuerier:
     def __init__(self, loader: Optional[DataLoader] = None):
         self.loader = loader or DataLoader()
 
+    def _load_data(self, key: str, load_fn: Callable, *args, **kwargs) -> Optional[pd.DataFrame]:
+        try:
+            df = load_fn(*args, **kwargs)
+            return df
+        except Exception as e:
+            logger.warning(f"加载 {key} 失败: {e}")
+            return None
+
     def query_by_intent(self, intent: dict) -> dict[str, pd.DataFrame]:
         results: dict[str, pd.DataFrame] = {}
         status: dict[str, str] = {}
@@ -20,90 +28,84 @@ class DataQuerier:
         item = intent.get("item_name")
         region = intent.get("region")
 
-        try:
-            prov_trend = self.loader.load_prov_trend()
+        prov_trend = self._load_data("prov_trend", self.loader.load_prov_trend)
+        if prov_trend is not None:
             results["prov_trend"] = prov_trend
             status["prov_trend"] = "success"
-        except Exception as e:
-            logger.warning(f"加载 prov_trend 失败: {e}")
-            status["prov_trend"] = f"error: {e}"
+        else:
+            status["prov_trend"] = "error"
 
-        try:
-            prov_detail = self.loader.load_prov_batch_detail()
+        prov_detail = self._load_data("prov_batch_detail", self.loader.load_prov_batch_detail)
+        if prov_detail is not None:
             if year:
                 prov_detail = prov_detail[prov_detail["niandu"].astype(int) == int(year)]
             results["prov_batch_detail"] = prov_detail
             status["prov_batch_detail"] = "success"
-        except Exception as e:
-            logger.warning(f"加载 prov_batch_detail 失败: {e}")
-            status["prov_batch_detail"] = f"error: {e}"
+        else:
+            status["prov_batch_detail"] = "error"
 
-        try:
-            wgx = self._filter_by_food(self.loader.load_risk_items("all"), food_cat, food_sub, item)
-            results["risk_items"] = wgx
+        risk = self._load_data("risk_items", self.loader.load_risk_items, "all")
+        if risk is not None:
+            results["risk_items"] = self._filter_by_food(risk, food_cat, food_sub, item)
             status["risk_items"] = "success"
-        except Exception as e:
-            logger.warning(f"加载 risk_items 失败: {e}")
-            status["risk_items"] = f"error: {e}"
+        else:
+            status["risk_items"] = "error"
 
-        try:
-            scjc = self._filter_by_food(self.loader.load_market_inspection("all"), food_cat, food_sub, item)
+        scjc = self._load_data("market_inspection", self.loader.load_market_inspection, "all")
+        if scjc is not None:
+            scjc = self._filter_by_food(scjc, food_cat, food_sub, item)
             if year and "niandu" in scjc.columns:
                 scjc = scjc[scjc["niandu"].astype(int) == int(year)]
             results["market_inspection"] = scjc
             status["market_inspection"] = "success"
-        except Exception as e:
-            logger.warning(f"加载 market_inspection 失败: {e}")
-            status["market_inspection"] = f"error: {e}"
+        else:
+            status["market_inspection"] = "error"
 
-        try:
-            high_rate = self._filter_by_food(self.loader.load_high_rate(), food_cat, food_sub, item)
-            results["high_rate"] = high_rate
+        high_rate = self._load_data("high_rate", self.loader.load_high_rate)
+        if high_rate is not None:
+            results["high_rate"] = self._filter_by_food(high_rate, food_cat, food_sub, item)
             status["high_rate"] = "success"
-        except Exception as e:
-            logger.warning(f"加载 high_rate 失败: {e}")
-            status["high_rate"] = f"error: {e}"
+        else:
+            status["high_rate"] = "error"
 
-        try:
-            exceedance = self._filter_by_food(self.loader.load_exceedance(), food_cat, food_sub, item)
+        exceedance = self._load_data("exceedance", self.loader.load_exceedance)
+        if exceedance is not None:
+            exceedance = self._filter_by_food(exceedance, food_cat, food_sub, item)
             if year and "niandu" in exceedance.columns:
                 exceedance = exceedance[exceedance["niandu"].astype(int) == int(year)]
             results["exceedance"] = exceedance
             status["exceedance"] = "success"
-        except Exception as e:
-            logger.warning(f"加载 exceedance 失败: {e}")
-            status["exceedance"] = f"error: {e}"
+        else:
+            status["exceedance"] = "error"
 
-        try:
-            near_limit = self._filter_by_food(self.loader.load_near_limit(), food_cat, food_sub, item)
+        near_limit = self._load_data("near_limit", self.loader.load_near_limit)
+        if near_limit is not None:
+            near_limit = self._filter_by_food(near_limit, food_cat, food_sub, item)
             if year and "niandu" in near_limit.columns:
                 near_limit = near_limit[near_limit["niandu"].astype(int) == int(year)]
             results["near_limit"] = near_limit
             status["near_limit"] = "success"
-        except Exception as e:
-            logger.warning(f"加载 near_limit 失败: {e}")
-            status["near_limit"] = f"error: {e}"
+        else:
+            status["near_limit"] = "error"
 
-        try:
-            dl_trend = self._filter_by_food(self.loader.load_category_trend("sp_s_17"), food_cat, food_sub, item)
-            results["category_trend"] = dl_trend
+        dl_trend = self._load_data("category_trend", self.loader.load_category_trend, "sp_s_17")
+        if dl_trend is not None:
+            results["category_trend"] = self._filter_by_food(dl_trend, food_cat, food_sub, item)
             status["category_trend"] = "success"
-        except Exception as e:
-            logger.warning(f"加载 category_trend 失败: {e}")
-            status["category_trend"] = f"error: {e}"
+        else:
+            status["category_trend"] = "error"
 
-        try:
-            xm_trend = self.loader.load_xm_trend()
+        xm_trend = self._load_data("item_trend", self.loader.load_xm_trend)
+        if xm_trend is not None:
             if item:
                 xm_trend = xm_trend[xm_trend["xiangmumingcheng"].astype(str).str.contains(item, na=False, regex=False)]
             results["item_trend"] = xm_trend
             status["item_trend"] = "success"
-        except Exception as e:
-            logger.warning(f"加载 item_trend 失败: {e}")
-            status["item_trend"] = f"error: {e}"
+        else:
+            status["item_trend"] = "error"
 
-        try:
-            seasonal = self.loader.load_seasonal("jjxfx_report")
+        seasonal = self._load_data("seasonal", self.loader.load_seasonal, "jjxfx_report")
+        if seasonal is not None:
             if food_sub:
                 seasonal = seasonal[seasonal["sp_s_20"].astype(str).str.contains(food_sub, na=False, regex=False)]
             elif food_cat:
@@ -111,9 +113,8 @@ class DataQuerier:
                     seasonal = seasonal[seasonal["sp_s_17"].astype(str).str.contains(food_cat, na=False, regex=False)]
             results["seasonal"] = seasonal
             status["seasonal"] = "success"
-        except Exception as e:
-            logger.warning(f"加载 seasonal 失败: {e}")
-            status["seasonal"] = f"error: {e}"
+        else:
+            status["seasonal"] = "error"
 
         success_count = sum(1 for v in status.values() if v == "success")
         total_count = len(status)

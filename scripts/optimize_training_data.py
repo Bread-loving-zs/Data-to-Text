@@ -1,30 +1,10 @@
-import json
 import re
-import copy
 from pathlib import Path
 from collections import Counter, defaultdict
+from src.data.utils import load_jsonl, save_jsonl
 
 PROJECT_ROOT = Path(__file__).parent.parent
 TRAINING_DIR = PROJECT_ROOT / "training_data"
-
-
-def load_jsonl(filepath):
-    samples = []
-    with open(filepath, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                try:
-                    samples.append(json.loads(line))
-                except json.JSONDecodeError:
-                    pass
-    return samples
-
-
-def save_jsonl(samples, filepath):
-    with open(filepath, "w", encoding="utf-8") as f:
-        for s in samples:
-            f.write(json.dumps(s, ensure_ascii=False) + "\n")
 
 
 def is_empty_table_alpaca(sample):

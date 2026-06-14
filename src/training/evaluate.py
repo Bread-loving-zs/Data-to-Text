@@ -6,6 +6,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from src.config import setup_logging
+from src.data.utils import load_jsonl
 
 logger = setup_logging(__name__)
 
@@ -35,12 +36,7 @@ class Evaluator:
             self.load_test_samples(test_data_path)
 
     def load_test_samples(self, filepath: Path) -> list[dict]:
-        samples = []
-        with open(filepath, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    samples.append(json.loads(line))
+        samples = load_jsonl(filepath)
         self.test_samples = samples
         logger.info(f"加载 {len(samples)} 条测试样本")
         return samples

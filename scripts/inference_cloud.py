@@ -11,9 +11,13 @@
 
 import os
 import json
+import re
 import logging
 import argparse
 import time
+from typing import Optional
+
+from src.data.utils import load_jsonl
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,14 +34,20 @@ DATA_PATH = "training_data/training_data.jsonl"
 
 
 def load_samples(data_path: str, num_samples: int) -> list[dict]:
-    samples = []
-    with open(data_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                samples.append(json.loads(line))
+    samples = load_jsonl(data_path)
     logger.info(f"共加载 {len(samples)} 条样本")
     return samples[:num_samples]
+
+
+def get_bnb_config():
+    import torch
+    from transformers import BitsAndBytesConfig
+    return BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+    )
 
 
 def generate(model, tokenizer, messages: list[dict], max_new_tokens: int = 1024) -> str:
@@ -46,7 +56,6 @@ def generate(model, tokenizer, messages: list[dict], max_new_tokens: int = 1024)
         enable_thinking=False
     )
     import torch
-    import re
     inputs = tokenizer(text, return_tensors="pt").to(model.device)
     with torch.no_grad():
         outputs = model.generate(
@@ -78,7 +87,6 @@ def compute_word_overlap(generated: str, reference: str) -> float:
 
 
 def check_facts(generated: str, reference: str) -> dict:
-    import re
     ref_numbers = set(re.findall(r'\d+\.?\d*', reference))
     gen_numbers = set(re.findall(r'\d+\.?\d*', generated))
     if not ref_numbers:
@@ -91,20 +99,15 @@ def check_facts(generated: str, reference: str) -> dict:
     }
 
 
-def test_base_model(num_samples: int):
-    from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+def _test_model(num_samples: int, label: str, lora_path: Optional[str] = None) -> dict:
+    from transformers import AutoTokenizer, AutoModelForCausalLM
     import torch
 
     logger.info("=" * 60)
-    logger.info("测试基础模型 (未微调)")
+    logger.info(f"测试{label} ({'未微调' if lora_path is None else 'LoRA'})")
     logger.info("=" * 60)
 
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_compute_dtype=torch.bfloat16,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_use_double_quant=True,
-    )
+    bnb_config = get_bnb_config()
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
@@ -113,8 +116,11 @@ def test_base_model(num_samples: int):
         device_map="auto",
         trust_remote_code=True,
     )
+    if lora_path is not None:
+        from peft import PeftModel
+        model = PeftModel.from_pretrained(model, lora_path)
     model.eval()
-    logger.info("基础模型加载完成")
+    logger.info(f"{label}加载完成")
 
     samples = load_samples(DATA_PATH, num_samples)
     results = []
@@ -143,90 +149,28 @@ def test_base_model(num_samples: int):
         print(f"样本 {i+1} | 词汇重叠: {overlap:.2%} | 事实准确率: {facts['accuracy']:.2%} | 耗时: {elapsed:.1f}s")
         print(f"{'='*60}")
         print(f"【参考输出】(前300字):\n{reference[:300]}...")
-        print(f"\n【模型输出】(前300字):\n{generated[:300]}...")
+        print(f"\n【{label}输出】(前300字):\n{generated[:300]}...")
 
     avg_overlap = sum(r["overlap"] for r in results) / len(results)
     avg_facts = sum(r["fact_accuracy"] for r in results) / len(results)
     avg_time = sum(r["time"] for r in results) / len(results)
 
     print(f"\n{'#'*60}")
-    print(f"基础模型平均: 词汇重叠={avg_overlap:.2%} 事实准确率={avg_facts:.2%} 耗时={avg_time:.1f}s")
+    print(f"{label}平均: 词汇重叠={avg_overlap:.2%} 事实准确率={avg_facts:.2%} 耗时={avg_time:.1f}s")
     print(f"{'#'*60}")
 
     del model
     torch.cuda.empty_cache()
 
     return {"avg_overlap": avg_overlap, "avg_facts": avg_facts, "results": results}
+
+
+def test_base_model(num_samples: int):
+    return _test_model(num_samples, "基础模型")
 
 
 def test_lora_model(num_samples: int):
-    from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
-    from peft import PeftModel
-    import torch
-
-    logger.info("=" * 60)
-    logger.info("测试微调模型 (LoRA)")
-    logger.info("=" * 60)
-
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_compute_dtype=torch.bfloat16,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_use_double_quant=True,
-    )
-
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True)
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_PATH,
-        quantization_config=bnb_config,
-        device_map="auto",
-        trust_remote_code=True,
-    )
-    model = PeftModel.from_pretrained(model, LORA_PATH)
-    model.eval()
-    logger.info("微调模型加载完成")
-
-    samples = load_samples(DATA_PATH, num_samples)
-    results = []
-
-    for i, sample in enumerate(samples):
-        formatted = format_training_sample(sample)
-        messages = formatted["messages"][:2]
-        reference = formatted["messages"][2]["content"]
-
-        logger.info(f"生成样本 {i+1}/{len(samples)}...")
-        start = time.time()
-        generated = generate(model, tokenizer, messages)
-        elapsed = time.time() - start
-
-        overlap = compute_word_overlap(generated, reference)
-        facts = check_facts(generated, reference)
-
-        results.append({
-            "index": i,
-            "overlap": overlap,
-            "fact_accuracy": facts["accuracy"],
-            "time": elapsed,
-        })
-
-        print(f"\n{'='*60}")
-        print(f"样本 {i+1} | 词汇重叠: {overlap:.2%} | 事实准确率: {facts['accuracy']:.2%} | 耗时: {elapsed:.1f}s")
-        print(f"{'='*60}")
-        print(f"【参考输出】(前300字):\n{reference[:300]}...")
-        print(f"\n【微调模型输出】(前300字):\n{generated[:300]}...")
-
-    avg_overlap = sum(r["overlap"] for r in results) / len(results)
-    avg_facts = sum(r["fact_accuracy"] for r in results) / len(results)
-    avg_time = sum(r["time"] for r in results) / len(results)
-
-    print(f"\n{'#'*60}")
-    print(f"微调模型平均: 词汇重叠={avg_overlap:.2%} 事实准确率={avg_facts:.2%} 耗时={avg_time:.1f}s")
-    print(f"{'#'*60}")
-
-    del model
-    torch.cuda.empty_cache()
-
-    return {"avg_overlap": avg_overlap, "avg_facts": avg_facts, "results": results}
+    return _test_model(num_samples, "微调模型", LORA_PATH)
 
 
 def main():

@@ -15,7 +15,7 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from src.data.utils import load_jsonl
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,22 +46,13 @@ FINETUNE_CONFIG = {
 }
 
 def load_training_data(data_path: str) -> list[dict]:
-    samples = []
-    with open(data_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                samples.append(json.loads(line))
+    samples = load_jsonl(data_path)
     logger.info(f"加载 {len(samples)} 条训练样本")
     return samples
 
 
-def format_sample(sample: dict) -> dict:
-    return format_training_sample(sample)
-
-
 def prepare_dataset(samples: list[dict], output_path: str):
-    formatted = [format_sample(s) for s in samples]
+    formatted = [format_training_sample(s) for s in samples]
     with open(output_path, "w", encoding="utf-8") as f:
         for item in formatted:
             f.write(json.dumps(item, ensure_ascii=False) + "\n")

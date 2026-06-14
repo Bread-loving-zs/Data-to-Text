@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional, Callable
 
 from src.config import TRAINING_DATA_DIR, setup_logging
-from src.data.loader import DataLoader
+from src.data.utils import load_jsonl
 from src.training.shared import format_training_sample, format_alpaca_sample, SECTION_NAMES
 
 logger = setup_logging(__name__)
@@ -26,7 +26,6 @@ class TrainingDataPreparer:
     def __init__(self, output_dir: Optional[Path] = None):
         self.output_dir = output_dir or TRAINING_DATA_DIR
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.loader = DataLoader()
 
     def process_real_samples(self, samples: list[dict], output_filename: str = "training_data.jsonl",
                               mode: str = "w") -> Path:

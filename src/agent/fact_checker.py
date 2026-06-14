@@ -9,20 +9,19 @@ logger = setup_logging(__name__)
 class FactChecker:
     def __init__(self, tolerance: float = 0.05):
         self.tolerance = tolerance
-        self.warnings: list[dict] = []
 
     def check(self, generated_text: str, context: dict) -> dict:
-        self.warnings = []
+        warnings: list[dict] = []
         logger.debug(f"开始事实校验，生成文本长度: {len(generated_text)}")
 
         facts_in_text = self._extract_numbers(generated_text)
 
         facts_in_context = self._extract_numbers_from_context(context)
 
-        self._compare(facts_in_text, facts_in_context)
+        self._compare(facts_in_text, facts_in_context, warnings)
 
         total_checks = len(facts_in_text)
-        passed = total_checks - len(self.warnings)
+        passed = total_checks - len(warnings)
         if total_checks == 0:
             logger.info("生成文本中未提取到可校验的数值事实")
             accuracy = 0.0
@@ -34,7 +33,7 @@ class FactChecker:
         return {
             "total_facts": total_checks,
             "passed": passed,
-            "warnings": self.warnings,
+            "warnings": warnings,
             "accuracy": round(accuracy, 4),
             "verdict": verdict,
         }
@@ -142,7 +141,7 @@ class FactChecker:
 
         return facts
 
-    def _compare(self, text_facts: list[dict], context_facts: dict[str, float]):
+    def _compare(self, text_facts: list[dict], context_facts: dict[str, float], warnings: list[dict]):
         for tf in text_facts:
             if tf["type"] == "trend":
                 continue
@@ -153,7 +152,7 @@ class FactChecker:
                 if tf["type"] in ("rate", "p_value"):
                     rel_diff = abs(tf["value"] - actual) / max(abs(actual), 1e-9)
                     if rel_diff > self.tolerance:
-                        self.warnings.append({
+                        warnings.append({
                             "raw": tf["raw"],
                             "generated": tf["value"],
                             "expected": actual,
@@ -163,7 +162,7 @@ class FactChecker:
                 elif tf["type"] in ("count", "fail_count"):
                     if tf["value"] != int(actual):
                         rel_diff = abs(tf["value"] - actual) / max(abs(actual), 1e-9)
-                        self.warnings.append({
+                        warnings.append({
                             "raw": tf["raw"],
                             "generated": tf["value"],
                             "expected": int(actual),

@@ -3,7 +3,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import numpy as np
-import os
 from pathlib import Path
 from typing import Optional
 

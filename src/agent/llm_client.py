@@ -1,6 +1,4 @@
 import httpx
-import json
-import re
 from typing import Optional
 
 from src.config import (
