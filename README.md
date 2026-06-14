@@ -63,10 +63,11 @@ Data-to-Text/
 │   ├── config.py                    # 全局配置（路径、环境变量、CSV映射、Schema元数据）
 │   │
 │   ├── agent/                       # Agent 层：意图识别、数据查询、统计、生成
+│   │   ├── llm_client.py            # LLM 客户端（Ollama/vLLM 双后端统一调用）
 │   │   ├── intent.py                # 意图识别（规则引擎 + LLM 增强混合策略）
 │   │   ├── query.py                 # 数据查询（根据意图加载并过滤多张数据表）
 │   │   ├── statistics.py            # 统计引擎（卡方检验、趋势分析、Wilson CI、异常检测、ANOVA）
-│   │   ├── generator.py             # 报告生成（Ollama/vLLM 双后端 + 降级模式 + 事实校验集成）
+│   │   ├── generator.py             # 报告生成（LLMClient 调用 + 降级模式 + 事实校验集成）
 │   │   ├── fact_checker.py          # 事实校验（提取生成文本中的数值并与上下文比对）
 │   │   └── context.py               # 上下文组装（将查询结果+统计结果组装为 ReportContext）
 │   │
