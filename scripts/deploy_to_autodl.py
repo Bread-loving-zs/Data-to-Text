@@ -78,6 +78,7 @@ def generate_commands(mode: str = "full") -> str:
 
     lines.append("# ====== 第一步：环境初始化 ======")
     lines.append("source /etc/network_turbo 2>/dev/null || true")
+    lines.append("pip install pydantic httpx pandas openpyxl scipy -q")
     lines.append("pip install transformers peft datasets accelerate bitsandbytes -q")
     lines.append("pip uninstall torchvision -y 2>/dev/null || true")
     lines.append("")
