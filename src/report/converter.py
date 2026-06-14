@@ -233,11 +233,13 @@ class MarkdownToDocx:
                 caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 caption.style = self.doc.styles["Normal"]
         else:
+            logger.warning(f"图片未找到: {img_path}")
             self.doc.add_paragraph(f"[图片未找到: {img_path}]")
 
     def save(self, filepath: Path):
         filepath.parent.mkdir(parents=True, exist_ok=True)
         self.doc.save(str(filepath))
+        logger.info(f"文档已保存: {filepath}")
         return filepath
 
 

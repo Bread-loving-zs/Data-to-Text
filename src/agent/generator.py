@@ -1,9 +1,9 @@
 import re
 import time
 from dataclasses import dataclass
+from typing import Optional
 
-import httpx
-
+from src.agent.llm_client import LLMClient
 from src.agent.context import ContextAssembler
 from src.agent.fact_checker import FactChecker
 from src.config import (
@@ -11,8 +11,6 @@ from src.config import (
     OLLAMA_HOST,
     OLLAMA_MODEL,
     PROMPT_DIR,
-    VLLM_API_KEY,
-    VLLM_API_URL,
     setup_logging,
 )
 from src.data.models import ReportContext
@@ -54,19 +52,15 @@ REPORT_SYSTEM_PROMPT = _load_system_prompt()
 
 
 class ReportGenerator:
-    def __init__(self, model: str | None = None, host: str | None = None,
-                 backend: str | None = None):
+    def __init__(self, model: Optional[str] = None, host: Optional[str] = None,
+                 backend: Optional[str] = None):
         self.model = model or OLLAMA_MODEL
         self.host = host or OLLAMA_HOST
         self.backend = backend or INFERENCE_BACKEND
         self.context_assembler = ContextAssembler()
         self.fact_checker = FactChecker()
         self.metrics = GenerationMetrics()
-
-        if self.backend == "vllm":
-            self.vllm_url = VLLM_API_URL or self.host.replace("11434", "8000") + "/v1"
-            self.vllm_key = VLLM_API_KEY
-            logger.info(f"使用 vLLM/OpenAI 后端: {self.vllm_url}")
+        self._llm = LLMClient(model, host, backend)
 
     def generate(self, intent: dict, query_results: dict) -> str:
         start_time = time.time()
@@ -128,60 +122,14 @@ class ReportGenerator:
         self.metrics = GenerationMetrics()
 
     def _call_llm(self, context_text: str) -> str:
-        if self.backend == "vllm":
-            return self._call_vllm(context_text)
-        return self._call_ollama(context_text)
-
-    def _call_ollama(self, context_text: str) -> str:
-        url = f"{self.host}/api/chat"
-        user_message = f"请根据以下数据撰写食品安全抽检分析报告：\n\n{context_text}"
-
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": REPORT_SYSTEM_PROMPT},
-                {"role": "user", "content": user_message},
-            ],
-            "stream": False,
-            "options": {
-                "temperature": 0.3,
-                "num_predict": 4096,
-            }
-        }
-
-        try:
-            response = httpx.post(url, json=payload, timeout=120.0)
-            response.raise_for_status()
-            return response.json()["message"]["content"]
-        except Exception as e:
-            logger.error(f"Ollama 调用失败: {e}")
+        messages = [
+            {"role": "system", "content": REPORT_SYSTEM_PROMPT},
+            {"role": "user", "content": f"请根据以下数据撰写食品安全抽检分析报告：\n\n{context_text}"},
+        ]
+        content = self._llm.chat(messages, temperature=0.3, max_tokens=4096, timeout=120.0)
+        if content is None:
             return self._fallback_report(context_text)
-
-    def _call_vllm(self, context_text: str) -> str:
-        url = f"{self.vllm_url}/chat/completions"
-        headers = {"Content-Type": "application/json"}
-        if self.vllm_key:
-            headers["Authorization"] = f"Bearer {self.vllm_key}"
-
-        user_message = f"请根据以下数据撰写食品安全抽检分析报告：\n\n{context_text}"
-
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": REPORT_SYSTEM_PROMPT},
-                {"role": "user", "content": user_message},
-            ],
-            "temperature": 0.3,
-            "max_tokens": 4096,
-        }
-
-        try:
-            response = httpx.post(url, json=payload, headers=headers, timeout=120.0)
-            response.raise_for_status()
-            return response.json()["choices"][0]["message"]["content"]
-        except Exception as e:
-            logger.error(f"vLLM 调用失败: {e}")
-            return self._fallback_report(context_text)
+        return content
 
     def _fallback_report(self, context_text: str) -> str:
         data = {

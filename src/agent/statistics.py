@@ -3,11 +3,16 @@ import numpy as np
 from scipy import stats
 from typing import Optional
 
+from src.config import setup_logging
+
+logger = setup_logging(__name__)
+
 
 class StatisticsEngine:
     @staticmethod
     def chi_square_test(observed: list[float], expected: Optional[list[float]] = None) -> dict:
         if not observed:
+            logger.warning("chi_square_test: 观测值列表不能为空")
             return {"error": "观测值列表不能为空"}
         if expected is None:
             expected = [np.mean(observed)] * len(observed)
@@ -20,6 +25,7 @@ class StatisticsEngine:
                 "conclusion": "差异有统计学意义" if p_value < 0.05 else "差异无统计学意义"
             }
         except Exception as e:
+            logger.warning(f"chi_square_test 执行失败: {e}")
             return {"error": str(e)}
 
     @staticmethod
@@ -38,11 +44,13 @@ class StatisticsEngine:
     @staticmethod
     def trend_analysis(values: list[float], periods: Optional[list[str]] = None) -> dict:
         if len(values) < 2:
+            logger.warning("trend_analysis: 数据点不足，至少需要2个")
             return {"error": "数据点不足，至少需要2个"}
         x = np.arange(len(values))
         y = np.array(values, dtype=float)
         mask = ~np.isnan(y)
         if mask.sum() < 2:
+            logger.warning("trend_analysis: 有效数据点不足")
             return {"error": "有效数据点不足"}
         x_clean = x[mask]
         y_clean = y[mask]
@@ -84,7 +92,7 @@ class StatisticsEngine:
         totals = df[total_col].dropna() if total_col in df.columns else pd.Series(dtype=float)
         fails = df[fail_col].dropna() if fail_col in df.columns else pd.Series(dtype=float)
 
-        return {
+        result = {
             "mean_rate": round(rates.mean(), 6) if len(rates) > 0 else None,
             "max_rate": round(rates.max(), 6) if len(rates) > 0 else None,
             "min_rate": round(rates.min(), 6) if len(rates) > 0 else None,
@@ -95,6 +103,8 @@ class StatisticsEngine:
             "overall_rate": round(fails.sum() / totals.sum(), 6) if len(totals) > 0 and totals.sum() > 0 else None,
             "sample_count": len(rates)
         }
+        logger.debug(f"统计汇总: mean_rate={result['mean_rate']}, max_rate={result['max_rate']}, min_rate={result['min_rate']}, sample_count={result['sample_count']}")
+        return result
 
     @staticmethod
     def detect_anomalies(values: list[float], method: str = "iqr") -> list[int]:
@@ -128,10 +138,12 @@ class StatisticsEngine:
     @staticmethod
     def compare_groups(group_data: dict[str, list[float]]) -> dict:
         if not group_data:
+            logger.warning("compare_groups: 输入数据不能为空")
             return {"error": "输入数据不能为空"}
         groups = {k: [x for x in v if not np.isnan(x)] for k, v in group_data.items()}
         groups = {k: v for k, v in groups.items() if len(v) > 0}
         if len(groups) < 2:
+            logger.warning("compare_groups: 至少需要2个有效分组")
             return {"error": "至少需要2个有效分组"}
         group_names = list(groups.keys())
         group_values = list(groups.values())
@@ -147,4 +159,5 @@ class StatisticsEngine:
                            for name, vals in zip(group_names, group_values)}
             }
         except Exception as e:
+            logger.warning(f"compare_groups 执行失败: {e}")
             return {"error": str(e)}

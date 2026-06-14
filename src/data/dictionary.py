@@ -18,6 +18,7 @@ class DataDictionary:
         if not self.dict_path.exists():
             raise FileNotFoundError(f"数据字典文件不存在: {self.dict_path}")
         self._df = pd.read_excel(self.dict_path)
+        logger.info(f"数据字典已加载: {self.dict_path}, {len(self._df)} 行")
         return self._df.copy()
 
     def get_field_info(self, field_name: str) -> Optional[dict]:
@@ -28,6 +29,7 @@ class DataDictionary:
             return None
         match = df[df[name_col].astype(str).str.strip() == field_name.strip()]
         if match.empty:
+            logger.debug(f"字段未找到: {field_name}")
             return None
         return match.iloc[0].to_dict()
 

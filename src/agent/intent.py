@@ -1,11 +1,10 @@
-import httpx
 import json
 import re
 from typing import Optional
 
+from src.agent.llm_client import LLMClient
 from src.config import (
     OLLAMA_HOST, OLLAMA_MODEL,
-    VLLM_API_URL, VLLM_API_KEY,
     INFERENCE_BACKEND, INTENT_USE_LLM,
     PROMPT_DIR, setup_logging,
 )
@@ -105,11 +104,7 @@ class IntentRecognizer:
         self.use_llm = use_llm if use_llm is not None else INTENT_USE_LLM
         self.backend = backend or INFERENCE_BACKEND
         self._system_prompt = self._load_system_prompt()
-
-        if self.backend == "vllm":
-            self.vllm_url = VLLM_API_URL or self.host.replace("11434", "8000") + "/v1"
-            self.vllm_key = VLLM_API_KEY
-            logger.info(f"IntentRecognizer 使用 vLLM/OpenAI 后端: {self.vllm_url}")
+        self._llm = LLMClient(model, host, backend)
 
     def _load_system_prompt(self) -> str:
         prompt_file = PROMPT_DIR / "intent_recognition.txt"
@@ -263,53 +258,15 @@ class IntentRecognizer:
         return None
 
     def _call_llm(self, user_message: str) -> dict:
-        if self.backend == "vllm":
-            return self._call_vllm(user_message)
-        return self._call_ollama(user_message)
-
-    def _call_ollama(self, user_message: str) -> dict:
-        url = f"{self.host}/api/chat"
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": self._system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            "stream": False,
-        }
-        try:
-            response = httpx.post(url, json=payload, timeout=60.0)
-            response.raise_for_status()
-            content = response.json()["message"]["content"]
-            return self._parse_json(content)
-        except Exception as e:
-            logger.warning(f"LLM调用失败: {e}")
+        messages = [
+            {"role": "system", "content": self._system_prompt},
+            {"role": "user", "content": user_message},
+        ]
+        content = self._llm.chat(messages, temperature=0.1, max_tokens=1024,
+                                  response_format={"type": "json_object"} if self.backend == "vllm" else None)
+        if content is None:
             return self._empty_result()
-
-    def _call_vllm(self, user_message: str) -> dict:
-        url = f"{self.vllm_url}/chat/completions"
-        headers = {"Content-Type": "application/json"}
-        if self.vllm_key:
-            headers["Authorization"] = f"Bearer {self.vllm_key}"
-
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": self._system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            "temperature": 0.1,
-            "response_format": {"type": "json_object"},
-        }
-
-        try:
-            response = httpx.post(url, json=payload, headers=headers, timeout=60.0)
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
-            return self._parse_json(content)
-        except Exception as e:
-            logger.warning(f"vLLM调用失败: {e}")
-            return self._empty_result()
+        return self._parse_json(content)
 
     def _parse_json(self, text: str) -> dict:
         text = text.strip()

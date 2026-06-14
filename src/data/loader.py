@@ -27,6 +27,7 @@ class DataLoader:
 
     def _read_csv(self, filename: str) -> pd.DataFrame:
         if filename in self._cache:
+            logger.debug(f"缓存命中: {filename}")
             return self._cache[filename].copy()
         filepath = self.data_dir / filename
         if not filepath.exists():
@@ -34,6 +35,7 @@ class DataLoader:
         df = pd.read_csv(filepath)
         self._check_columns(filename, df)
         self._cache[filename] = df
+        logger.debug(f"已加载数据: {filename}, {len(df)} 行")
         return df.copy()
 
     def _check_columns(self, filename: str, df: pd.DataFrame):

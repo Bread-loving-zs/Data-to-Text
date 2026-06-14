@@ -4,6 +4,7 @@ from src.agent.context import ContextAssembler
 from src.agent.generator import ReportGenerator
 from src.agent.statistics import StatisticsEngine
 from src.agent.fact_checker import FactChecker
+from src.agent.llm_client import LLMClient
 
 __all__ = [
     "IntentRecognizer",
@@ -12,4 +13,5 @@ __all__ = [
     "ReportGenerator",
     "StatisticsEngine",
     "FactChecker",
+    "LLMClient",
 ]

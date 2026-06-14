@@ -1,13 +1,12 @@
 import os
+import re
 import logging
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
-DATA_DIR = PROJECT_ROOT / "自动分析报告数据模板" / "数据表"
-DICT_FILE = PROJECT_ROOT / "自动分析报告数据模板" / "sheng_jdcj_dictionary数据字典.xlsx"
-DOCX_JD = PROJECT_ROOT / "自动分析报告数据模板" / "监督抽检1780384482451.docx"
-DOCX_FX = PROJECT_ROOT / "自动分析报告数据模板" / "风险监测1780384564764.docx"
+DATA_DIR = Path(os.environ.get("DATA_DIR", str(PROJECT_ROOT / "自动分析报告数据模板" / "数据表")))
+DICT_FILE = Path(os.environ.get("DICT_FILE", str(PROJECT_ROOT / "自动分析报告数据模板" / "sheng_jdcj_dictionary数据字典.xlsx")))
 
 OUTPUT_DIR = PROJECT_ROOT / "output"
 TRAINING_DATA_DIR = PROJECT_ROOT / "training_data"
@@ -40,6 +39,9 @@ def setup_logging(name: str = "data_to_text", level: str = None) -> logging.Logg
         logger.addHandler(handler)
     logger.setLevel(getattr(logging, level or LOG_LEVEL, logging.INFO))
     return logger
+
+
+logger = setup_logging(__name__)
 
 
 CSV_FILE_MAPPING = {
@@ -82,50 +84,15 @@ CSV_FILE_MAPPING = {
     "xm_trend": "sheng_jdcj_xm_trend_202606021601.csv",
 }
 
-CSV_FILE_PATTERNS = {
-    "cbbs": "jdcj_prov_cbbs",
-    "high_rate": "jdcj_prov_high_rate",
-    "jjxfx": "jdcj_prov_jjxfx",
-    "jjxfx_report": "jdcj_prov_jjxfx_report",
-    "jjxqs": "jdcj_prov_jjxqs",
-    "jjxqs_report": "jdcj_prov_jjxqs_report",
-    "scjc_all": "jdcj_prov_scjc_all",
-    "scjc_bcy": "jdcj_prov_scjc_bcy",
-    "scjc_hj": "jdcj_prov_scjc_hj",
-    "scjc_sc": "jdcj_prov_scjc_sc",
-    "wgx_all": "jdcj_prov_wgx_all",
-    "wgx_bcy": "jdcj_prov_wgx_bcy",
-    "wgx_hj": "jdcj_prov_wgx_hj",
-    "wgx_sc": "jdcj_prov_wgx_sc",
-    "cy_batch_detail": "sheng_jdcj_cy_batch_detail",
-    "cy_trend": "sheng_jdcj_cy_trend",
-    "cycs_batch_detail": "sheng_jdcj_cycs_batch_detail",
-    "cycs_trend": "sheng_jdcj_cycs_trend",
-    "cyhj_batch_detail": "sheng_jdcj_cyhj_batch_detail",
-    "cyhj_trend": "sheng_jdcj_cyhj_trend",
-    "dl_batch_detail": "sheng_jdcj_dl_batch_detail",
-    "dl_trend": "sheng_jdcj_dl_trend",
-    "dl_xm_batch_detail": "sheng_jdcj_dl_xm_batch_detail",
-    "dl_xm_trend": "sheng_jdcj_dl_xm_trend",
-    "jxz_table": "sheng_jdcj_jxz_table",
-    "prov_batch_detail": "sheng_jdcj_prov_batch_detail",
-    "prov_trend": "sheng_jdcj_prov_trend",
-    "qy_batch_detail": "sheng_jdcj_qy_batch_detail",
-    "qy_trend": "sheng_jdcj_qy_trend",
-    "sc_batch_detail": "sheng_jdcj_sc_batch_detail",
-    "sc_trend": "sheng_jdcj_sc_trend",
-    "xl_batch_detail": "sheng_jdcj_xl_batch_detail",
-    "xl_trend": "sheng_jdcj_xl_trend",
-    "xl_xm_batch_detail": "sheng_jdcj_xl_xm_batch_detail",
-    "xl_xm_trend": "sheng_jdcj_xl_xm_trend",
-    "xm_batch_detail": "sheng_jdcj_xm_batch_detail",
-    "xm_trend": "sheng_jdcj_xm_trend",
-}
+CSV_FILE_PATTERNS: dict[str, str] = {}
+for _key, _filename in CSV_FILE_MAPPING.items():
+    _match = re.match(r"^(.+?)_\d{12,}$", Path(_filename).stem)
+    if _match:
+        CSV_FILE_PATTERNS[_key] = _match.group(1)
 
 
 def resolve_csv_mapping(data_dir: Path) -> dict[str, str]:
     resolved: dict[str, str] = {}
-    import re
 
     for key, hardcoded_filename in CSV_FILE_MAPPING.items():
         filepath = data_dir / hardcoded_filename
@@ -147,14 +114,14 @@ def resolve_csv_mapping(data_dir: Path) -> dict[str, str]:
                 suffix = stem[len(prefix_sep):]
                 if re.fullmatch(r"\d{12,}", suffix):
                     if matched is not None:
-                        logging.getLogger("data_to_text").warning(
+                        logger.warning(
                             f"键 [{key}] 匹配到多个文件: {matched} 和 {f.name}，使用 {f.name}"
                         )
                     matched = f.name
         if matched:
             resolved[key] = matched
         else:
-            logging.getLogger("data_to_text").warning(
+            logger.warning(
                 f"键 [{key}] 在 {data_dir} 中未找到匹配的 CSV 文件（前缀: {prefix}）"
             )
             resolved[key] = hardcoded_filename

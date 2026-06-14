@@ -13,6 +13,7 @@ class FactChecker:
 
     def check(self, generated_text: str, context: dict) -> dict:
         self.warnings = []
+        logger.debug(f"开始事实校验，生成文本长度: {len(generated_text)}")
 
         facts_in_text = self._extract_numbers(generated_text)
 
@@ -23,6 +24,7 @@ class FactChecker:
         total_checks = len(facts_in_text)
         passed = total_checks - len(self.warnings)
         if total_checks == 0:
+            logger.info("生成文本中未提取到可校验的数值事实")
             accuracy = 0.0
             verdict = "无法校验"
         else:
@@ -174,4 +176,5 @@ class FactChecker:
         for key in context:
             if label in key or key in label:
                 return key
+        logger.debug(f"未找到匹配的上下文事实: label={label}, type={text_fact['type']}")
         return None
