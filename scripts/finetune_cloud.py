@@ -58,25 +58,20 @@ FINETUNE_CONFIG = {
 
 class SFTDataset(TorchDataset):
     def __init__(self, data: list[dict]):
-        self.input_ids = torch.tensor(
-            [d["input_ids"] for d in data], dtype=torch.long
-        )
-        self.attention_mask = torch.tensor(
-            [d["attention_mask"] for d in data], dtype=torch.long
-        )
-        self.labels = torch.tensor(
-            [d["labels"] for d in data], dtype=torch.long
-        )
+        self.samples = [
+            {
+                "input_ids": torch.tensor(d["input_ids"], dtype=torch.long),
+                "attention_mask": torch.tensor(d["attention_mask"], dtype=torch.long),
+                "labels": torch.tensor(d["labels"], dtype=torch.long),
+            }
+            for d in data
+        ]
 
     def __len__(self):
-        return len(self.input_ids)
+        return len(self.samples)
 
     def __getitem__(self, idx):
-        return {
-            "input_ids": self.input_ids[idx],
-            "attention_mask": self.attention_mask[idx],
-            "labels": self.labels[idx],
-        }
+        return self.samples[idx]
 
 
 def load_training_data(data_path: str) -> list[dict]:
