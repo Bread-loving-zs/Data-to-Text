@@ -138,13 +138,37 @@ def train():
     dataset = Dataset.from_json(dataset_path)
 
     def tokenize_function(examples):
-        texts = []
+        all_input_ids = []
+        all_attention_mask = []
+        all_labels = []
         for msgs in examples["messages"]:
-            text = tokenizer.apply_chat_template(msgs, tokenize=False, add_generation_prompt=False)
-            texts.append(text)
-        result = tokenizer(texts, truncation=True, max_length=config["max_seq_length"], padding=False)
-        result["labels"] = result["input_ids"].copy()
-        return result
+            full_ids = tokenizer.apply_chat_template(
+                msgs, tokenize=True, add_generation_prompt=False
+            )
+            if len(full_ids) > config["max_seq_length"]:
+                full_ids = full_ids[:config["max_seq_length"]]
+            labels = [-100] * len(full_ids)
+            for i, msg in enumerate(msgs):
+                if msg["role"] == "assistant":
+                    end_ids = tokenizer.apply_chat_template(
+                        msgs[:i + 1], tokenize=True, add_generation_prompt=False
+                    )
+                    start = 0 if i == 0 else len(
+                        tokenizer.apply_chat_template(
+                            msgs[:i], tokenize=True, add_generation_prompt=False
+                        )
+                    )
+                    end = len(end_ids)
+                    for j in range(start, min(end, len(full_ids))):
+                        labels[j] = full_ids[j]
+            all_input_ids.append(full_ids)
+            all_attention_mask.append([1] * len(full_ids))
+            all_labels.append(labels)
+        return {
+            "input_ids": all_input_ids,
+            "attention_mask": all_attention_mask,
+            "labels": all_labels,
+        }
 
     tokenized_dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset.column_names)
 

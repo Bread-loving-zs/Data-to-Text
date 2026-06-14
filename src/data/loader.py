@@ -32,8 +32,8 @@ class DataLoader:
         if not filepath.exists():
             raise FileNotFoundError(f"数据文件不存在: {filepath}")
         df = pd.read_csv(filepath)
-        self._cache[filename] = df
         self._check_columns(filename, df)
+        self._cache[filename] = df
         return df.copy()
 
     def _check_columns(self, filename: str, df: pd.DataFrame):

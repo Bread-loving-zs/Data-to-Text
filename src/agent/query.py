@@ -31,7 +31,7 @@ class DataQuerier:
         try:
             prov_detail = self.loader.load_prov_batch_detail()
             if year:
-                prov_detail = prov_detail[prov_detail["niandu"] == year]
+                prov_detail = prov_detail[prov_detail["niandu"].astype(int) == int(year)]
             results["prov_batch_detail"] = prov_detail
             status["prov_batch_detail"] = "success"
         except Exception as e:
@@ -49,7 +49,7 @@ class DataQuerier:
         try:
             scjc = self._filter_by_food(self.loader.load_market_inspection("all"), food_cat, food_sub, item)
             if year and "niandu" in scjc.columns:
-                scjc = scjc[scjc["niandu"] == year]
+                scjc = scjc[scjc["niandu"].astype(int) == int(year)]
             results["market_inspection"] = scjc
             status["market_inspection"] = "success"
         except Exception as e:
@@ -67,7 +67,7 @@ class DataQuerier:
         try:
             exceedance = self._filter_by_food(self.loader.load_exceedance(), food_cat, food_sub, item)
             if year and "niandu" in exceedance.columns:
-                exceedance = exceedance[exceedance["niandu"] == year]
+                exceedance = exceedance[exceedance["niandu"].astype(int) == int(year)]
             results["exceedance"] = exceedance
             status["exceedance"] = "success"
         except Exception as e:
@@ -77,7 +77,7 @@ class DataQuerier:
         try:
             near_limit = self._filter_by_food(self.loader.load_near_limit(), food_cat, food_sub, item)
             if year and "niandu" in near_limit.columns:
-                near_limit = near_limit[near_limit["niandu"] == year]
+                near_limit = near_limit[near_limit["niandu"].astype(int) == int(year)]
             results["near_limit"] = near_limit
             status["near_limit"] = "success"
         except Exception as e:
@@ -95,7 +95,7 @@ class DataQuerier:
         try:
             xm_trend = self.loader.load_xm_trend()
             if item:
-                xm_trend = xm_trend[xm_trend["xiangmumingcheng"].astype(str).str.contains(item, na=False)]
+                xm_trend = xm_trend[xm_trend["xiangmumingcheng"].astype(str).str.contains(item, na=False, regex=False)]
             results["item_trend"] = xm_trend
             status["item_trend"] = "success"
         except Exception as e:
@@ -105,10 +105,10 @@ class DataQuerier:
         try:
             seasonal = self.loader.load_seasonal("jjxfx_report")
             if food_sub:
-                seasonal = seasonal[seasonal["sp_s_20"].astype(str).str.contains(food_sub, na=False)]
+                seasonal = seasonal[seasonal["sp_s_20"].astype(str).str.contains(food_sub, na=False, regex=False)]
             elif food_cat:
                 if "sp_s_17" in seasonal.columns:
-                    seasonal = seasonal[seasonal["sp_s_17"].astype(str).str.contains(food_cat, na=False)]
+                    seasonal = seasonal[seasonal["sp_s_17"].astype(str).str.contains(food_cat, na=False, regex=False)]
             results["seasonal"] = seasonal
             status["seasonal"] = "success"
         except Exception as e:
@@ -131,14 +131,14 @@ class DataQuerier:
         if food_cat:
             for col in reversed(FOOD_CATEGORY_COLS):
                 if col in result.columns:
-                    filtered = result[result[col].astype(str).str.contains(food_cat, na=False)]
+                    filtered = result[result[col].astype(str).str.contains(food_cat, na=False, regex=False)]
                     if not filtered.empty:
                         result = filtered
                         break
         if food_sub:
             if "sp_s_20" in result.columns:
-                result = result[result["sp_s_20"].astype(str).str.contains(food_sub, na=False)]
+                result = result[result["sp_s_20"].astype(str).str.contains(food_sub, na=False, regex=False)]
         if item:
             if "xiangmumingcheng" in result.columns:
-                result = result[result["xiangmumingcheng"].astype(str).str.contains(item, na=False)]
+                result = result[result["xiangmumingcheng"].astype(str).str.contains(item, na=False, regex=False)]
         return result

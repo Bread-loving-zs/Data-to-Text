@@ -95,7 +95,7 @@ class ReportContext(BaseModel):
     high_rate_items: Optional[list[dict]] = None
     statistics: Optional[dict] = None
 
-    def validate(self) -> dict:
+    def validate_context(self) -> dict:
         warnings: list[str] = []
         valid = True
 

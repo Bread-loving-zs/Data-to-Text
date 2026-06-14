@@ -33,7 +33,7 @@ class ReportTemplate:
 
         scjc = query_results.get("market_inspection")
         if scjc is not None and not scjc.empty and "rate" in scjc.columns:
-            df = scjc.sort_values("rate", ascending=False).head(10)
+            df = scjc.dropna(subset=["rate"]).sort_values("rate", ascending=False).head(10)
             labels = []
             values = []
             for _, row in df.iterrows():
@@ -58,7 +58,7 @@ class ReportTemplate:
                     if len(label) > 8:
                         label = label[:7] + "..."
                     labels.append(label)
-                    values.append(float(row["y3_rate"]) * 100 if row.get("y3_rate") else 0)
+                    values.append(float(row["y3_rate"]) * 100 if pd.notna(row.get("y3_rate")) else 0)
                 if labels:
                     chart_paths["risk_bar"] = self.chart_gen.bar_chart(
                         labels, values, title="风险项目不合格率", filename="risk_items.png",
@@ -107,6 +107,7 @@ class ReportTemplate:
             chart_md += f"![{desc}]({filepath})\n\n"
 
         if "## 统计图表" in markdown:
-            return markdown
+            idx = markdown.index("## 统计图表")
+            return markdown[:idx] + chart_md
 
         return markdown + chart_md

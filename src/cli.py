@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from src.config import OUTPUT_DIR, setup_logging
@@ -231,7 +232,18 @@ def main():
         parser.print_help()
         return
 
-    args.func(args)
+    if not hasattr(args, 'func'):
+        parser.parse_args([args.command, '--help'])
+        return
+
+    try:
+        args.func(args)
+    except KeyboardInterrupt:
+        logger.info("用户中断")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"未预期的错误: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

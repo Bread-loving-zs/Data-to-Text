@@ -22,14 +22,19 @@ class FactChecker:
 
         total_checks = len(facts_in_text)
         passed = total_checks - len(self.warnings)
-        accuracy = passed / total_checks if total_checks > 0 else 1.0
+        if total_checks == 0:
+            accuracy = 0.0
+            verdict = "无法校验"
+        else:
+            accuracy = passed / total_checks
+            verdict = "通过" if accuracy >= 0.9 else ("警告" if accuracy >= 0.7 else "不通过")
 
         return {
             "total_facts": total_checks,
             "passed": passed,
             "warnings": self.warnings,
             "accuracy": round(accuracy, 4),
-            "verdict": "通过" if accuracy >= 0.9 else ("警告" if accuracy >= 0.7 else "不通过"),
+            "verdict": verdict,
         }
 
     def _extract_numbers(self, text: str) -> list[dict]:
@@ -112,12 +117,14 @@ class FactChecker:
         if "total_fails" in province:
             facts["不合格总批次"] = float(province["total_fails"])
         if "fail_rate" in province:
-            facts["全省不合格率"] = float(province["fail_rate"]) * 100
+            val = float(province["fail_rate"])
+            facts["全省不合格率"] = val * 100 if val <= 1 else val
 
         for item in category[:20]:
             name = item.get("sp_s_20") or item.get("xiangmumingcheng") or ""
             if name and "rate" in item:
-                facts[f"{name}_不合格率"] = float(item["rate"]) * 100
+                val = float(item["rate"])
+                facts[f"{name}_不合格率"] = val * 100 if val <= 1 else val
             if name and "total" in item:
                 facts[f"{name}_批次"] = float(item["total"])
 

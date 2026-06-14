@@ -140,7 +140,7 @@ class TrainingDataPreparer:
 
             input_clean = {}
             for k, v in input_row.items():
-                if isinstance(v, float) and v == int(v):
+                if isinstance(v, float) and not pd.isna(v) and v == int(v):
                     input_clean[str(k)] = int(v)
                 else:
                     input_clean[str(k)] = v

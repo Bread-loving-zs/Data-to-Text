@@ -58,8 +58,9 @@ def test_check_warning():
 def test_check_empty_text():
     fc = FactChecker()
     result = fc.check("", {})
-    assert result["accuracy"] == 1.0
+    assert result["accuracy"] == 0.0
     assert result["total_facts"] == 0
+    assert result["verdict"] == "无法校验"
 
 
 def test_find_match():

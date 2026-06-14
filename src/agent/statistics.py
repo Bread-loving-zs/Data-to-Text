@@ -7,6 +7,8 @@ from typing import Optional
 class StatisticsEngine:
     @staticmethod
     def chi_square_test(observed: list[float], expected: Optional[list[float]] = None) -> dict:
+        if not observed:
+            return {"error": "观测值列表不能为空"}
         if expected is None:
             expected = [np.mean(observed)] * len(observed)
         try:
@@ -57,6 +59,10 @@ class StatisticsEngine:
 
     @staticmethod
     def wilson_confidence_interval(successes: int, total: int, confidence: float = 0.95) -> dict:
+        if successes < 0 or total < 0:
+            raise ValueError("successes 和 total 不能为负数")
+        if successes > total:
+            raise ValueError("successes 不能大于 total")
         if total == 0:
             return {"lower": None, "upper": None, "rate": None}
         rate = successes / total
@@ -83,7 +89,7 @@ class StatisticsEngine:
             "max_rate": round(rates.max(), 6) if len(rates) > 0 else None,
             "min_rate": round(rates.min(), 6) if len(rates) > 0 else None,
             "median_rate": round(rates.median(), 6) if len(rates) > 0 else None,
-            "std_rate": round(rates.std(), 6) if len(rates) > 0 else None,
+            "std_rate": round(rates.std(), 6) if len(rates) > 1 else None,
             "total_inspections": int(totals.sum()) if len(totals) > 0 else None,
             "total_fails": int(fails.sum()) if len(fails) > 0 else None,
             "overall_rate": round(fails.sum() / totals.sum(), 6) if len(totals) > 0 and totals.sum() > 0 else None,
@@ -117,10 +123,12 @@ class StatisticsEngine:
                 if not np.isnan(v) and abs(v - mean) / std > 2.5:
                     anomalies.append(i)
             return anomalies
-        return []
+        raise ValueError(f"未知的异常检测方法: {method}，支持的方法为 'iqr' 和 'zscore'")
 
     @staticmethod
     def compare_groups(group_data: dict[str, list[float]]) -> dict:
+        if not group_data:
+            return {"error": "输入数据不能为空"}
         groups = {k: [x for x in v if not np.isnan(x)] for k, v in group_data.items()}
         groups = {k: v for k, v in groups.items() if len(v) > 0}
         if len(groups) < 2:

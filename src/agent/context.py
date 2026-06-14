@@ -16,7 +16,7 @@ class ContextAssembler:
 
     def assemble(self, intent: dict, query_results: dict[str, pd.DataFrame]) -> ReportContext:
         ctx = ReportContext(
-            year=intent.get("year") or 2024,
+            year=intent.get("year") if intent.get("year") is not None else 2024,
             quarter=intent.get("quarter"),
             food_category=intent.get("food_category"),
             food_subcategory=intent.get("food_subcategory"),
@@ -52,7 +52,7 @@ class ContextAssembler:
             if failed_tables:
                 logger.warning(f"数据查询存在失败的表: {list(failed_tables.keys())}")
 
-        validation = ctx.validate()
+        validation = ctx.validate_context()
         if not validation["valid"] or validation["warnings"]:
             logger.warning(f"ReportContext 验证问题: {validation['warnings']}")
 

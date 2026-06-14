@@ -31,8 +31,6 @@ SECTION_NAMES = {
     "风险监测中的近限值分析": "近限值分析",
     "季节性风险": "季节性风险",
     "其他问题": "其他问题",
-    "风险监测中的趋势分析": "趋势分析",
-    "监督抽检中的趋势分析": "趋势分析",
 }
 
 SECTION_INSTRUCTIONS = {
@@ -104,7 +102,7 @@ def format_value(v, indent: int = 0) -> str:
             else:
                 if isinstance(vv, float):
                     lines.append(f"{prefix}- {kk}: {vv:.4f}")
-                elif isinstance(vv, int):
+                elif isinstance(vv, int) and not isinstance(vv, bool):
                     lines.append(f"{prefix}- {kk}: {vv}")
                 else:
                     lines.append(f"{prefix}- {kk}: {vv}")
