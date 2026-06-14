@@ -15,6 +15,10 @@ import os
 import json
 import logging
 from pathlib import Path
+
+import torch
+from torch.utils.data import Dataset as TorchDataset
+
 from src.data.utils import load_jsonl
 
 os.environ.setdefault("HF_HOME", "/root/autodl-tmp/huggingface_cache")
@@ -51,6 +55,30 @@ FINETUNE_CONFIG = {
     "use_gradient_checkpointing": True,
 }
 
+
+class SFTDataset(TorchDataset):
+    def __init__(self, data: list[dict]):
+        self.input_ids = torch.tensor(
+            [d["input_ids"] for d in data], dtype=torch.long
+        )
+        self.attention_mask = torch.tensor(
+            [d["attention_mask"] for d in data], dtype=torch.long
+        )
+        self.labels = torch.tensor(
+            [d["labels"] for d in data], dtype=torch.long
+        )
+
+    def __len__(self):
+        return len(self.input_ids)
+
+    def __getitem__(self, idx):
+        return {
+            "input_ids": self.input_ids[idx],
+            "attention_mask": self.attention_mask[idx],
+            "labels": self.labels[idx],
+        }
+
+
 def load_training_data(data_path: str) -> list[dict]:
     samples = load_jsonl(data_path)
     logger.info(f"加载 {len(samples)} 条训练样本")
@@ -65,16 +93,52 @@ def prepare_dataset(samples: list[dict], output_path: str):
     logger.info(f"数据集已保存: {output_path} ({len(formatted)} 条)")
 
 
+def tokenize_samples(raw_samples: list[dict], tokenizer, config: dict) -> list[dict]:
+    max_len = config["max_seq_length"]
+    tokenized_data = []
+    for idx, sample in enumerate(raw_samples):
+        msgs = sample["messages"]
+        full_ids = tokenizer.apply_chat_template(
+            msgs, tokenize=True, add_generation_prompt=False
+        )
+        if len(full_ids) > max_len:
+            full_ids = full_ids[:max_len]
+        labels = [-100] * len(full_ids)
+        for i, msg in enumerate(msgs):
+            if msg["role"] == "assistant":
+                end_ids = tokenizer.apply_chat_template(
+                    msgs[:i + 1], tokenize=True, add_generation_prompt=False
+                )
+                start = 0 if i == 0 else len(
+                    tokenizer.apply_chat_template(
+                        msgs[:i], tokenize=True, add_generation_prompt=False
+                    )
+                )
+                end = len(end_ids)
+                for j in range(start, min(end, len(full_ids))):
+                    labels[j] = full_ids[j]
+        seq_len = len(full_ids)
+        pad_len = max_len - seq_len
+        tokenized_data.append({
+            "input_ids": full_ids + [tokenizer.pad_token_id] * pad_len,
+            "attention_mask": [1] * seq_len + [0] * pad_len,
+            "labels": labels + [-100] * pad_len,
+        })
+        if (idx + 1) % 50 == 0:
+            logger.info(f"已分词 {idx + 1}/{len(raw_samples)} 条样本")
+    logger.info(f"分词完成: {len(tokenized_data)} 条, 序列长度: {max_len}")
+    return tokenized_data
+
+
 def train():
     try:
         from transformers import (
             AutoTokenizer, AutoModelForCausalLM,
-            TrainingArguments, Trainer, DataCollatorForSeq2Seq,
-            BitsAndBytesConfig
+            TrainingArguments, Trainer,
+            BitsAndBytesConfig,
+            default_data_collator,
         )
         from peft import LoraConfig, get_peft_model, TaskType
-        from datasets import Dataset
-        import torch
     except ImportError as e:
         logger.error(f"缺少依赖: {e}")
         logger.error("pip install transformers datasets peft accelerate bitsandbytes")
@@ -132,44 +196,15 @@ def train():
         logger.error(f"数据集不存在: {dataset_path}")
         return
 
-    dataset = Dataset.from_json(dataset_path)
+    raw_samples = load_jsonl(dataset_path)
+    logger.info(f"加载 {len(raw_samples)} 条格式化样本")
+    tokenized_data = tokenize_samples(raw_samples, tokenizer, config)
+    train_dataset = SFTDataset(tokenized_data)
 
-    def tokenize_function(examples):
-        all_input_ids = []
-        all_attention_mask = []
-        all_labels = []
-        for msgs in examples["messages"]:
-            full_ids = tokenizer.apply_chat_template(
-                msgs, tokenize=True, add_generation_prompt=False
-            )
-            if len(full_ids) > config["max_seq_length"]:
-                full_ids = full_ids[:config["max_seq_length"]]
-            labels = [-100] * len(full_ids)
-            for i, msg in enumerate(msgs):
-                if msg["role"] == "assistant":
-                    end_ids = tokenizer.apply_chat_template(
-                        msgs[:i + 1], tokenize=True, add_generation_prompt=False
-                    )
-                    start = 0 if i == 0 else len(
-                        tokenizer.apply_chat_template(
-                            msgs[:i], tokenize=True, add_generation_prompt=False
-                        )
-                    )
-                    end = len(end_ids)
-                    for j in range(start, min(end, len(full_ids))):
-                        labels[j] = full_ids[j]
-            all_input_ids.append(full_ids)
-            all_attention_mask.append([1] * len(full_ids))
-            all_labels.append(labels)
-        return {
-            "input_ids": all_input_ids,
-            "attention_mask": all_attention_mask,
-            "labels": all_labels,
-        }
-
-    tokenized_dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset.column_names)
-
-    warmup_steps = max(1, int(0.03 * len(tokenized_dataset) // (config["batch_size"] * config["gradient_accumulation_steps"])))
+    warmup_steps = max(1, int(
+        0.03 * len(train_dataset)
+        // (config["batch_size"] * config["gradient_accumulation_steps"])
+    ))
 
     training_args = TrainingArguments(
         output_dir="./qwen3-lora-output",
@@ -191,13 +226,11 @@ def train():
         optim="paged_adamw_8bit",
     )
 
-    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model, padding=True)
-
     trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=tokenized_dataset,
-        data_collator=data_collator,
+        train_dataset=train_dataset,
+        data_collator=default_data_collator,
         processing_class=tokenizer,
     )
 
